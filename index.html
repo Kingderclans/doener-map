@@ -24,24 +24,24 @@
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    const getColor = status => status === "Spieß da" ? "green" :
-                               status === "Spieß aus" ? "red" : "gray";
+    const getColor = spieß => spieß === "Spieß da" ? "green" :
+                               spieß === "Spieß aus" ? "red" : "gray";
 
     function createMarker(laden, index) {
-      const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.status), radius: 8 }).addTo(map);
+      const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.spieß || laden.status), radius: 8 }).addTo(map);
 
       marker.bindPopup(`
         <b>Name:</b> <span id="name-${index}">${laden.name}</span><br>
-        <b>Status:</b> <span id="status-${index}">${laden.status}</span><br>
+        <b>Spieß:</b> <span id="spieß-${index}">${laden.spieß || laden.status}</span><br>
         <b>Öffnungszeiten:</b> <span id="hours-${index}">${laden.hours || ''}</span><br>
         <b>Adresse:</b> <span id="address-${index}">${laden.address || ''}</span><br>
         <b>Telefon:</b> <span id="phone-${index}">${laden.phone || ''}</span><br><br>
 
         <input id="input-name-${index}" value="${laden.name}" placeholder="Name">
-        <select id="select-status-${index}">
-          <option value="Spieß da" ${laden.status === "Spieß da" ? "selected" : ""}>Spieß da</option>
-          <option value="Spieß aus" ${laden.status === "Spieß aus" ? "selected" : ""}>Spieß aus</option>
-          <option value="geschlossen" ${laden.status === "geschlossen" ? "selected" : ""}>geschlossen</option>
+        <select id="select-spieß-${index}">
+          <option value="Spieß da" ${laden.spieß === "Spieß da" || laden.status === "Spieß da" ? "selected" : ""}>Spieß da</option>
+          <option value="Spieß aus" ${laden.spieß === "Spieß aus" || laden.status === "Spieß aus" ? "selected" : ""}>Spieß aus</option>
+          <option value="geschlossen" ${laden.spieß === "geschlossen" || laden.status === "geschlossen" ? "selected" : ""}>geschlossen</option>
         </select>
         <input id="input-hours-${index}" value="${laden.hours || ''}" placeholder="Öffnungszeiten">
         <input id="input-address-${index}" value="${laden.address || ''}" placeholder="Adresse">
@@ -51,24 +51,24 @@
 
       marker.on("popupopen", () => {
         const btn = document.getElementById(`btn-${index}`);
-        const select = document.getElementById(`select-status-${index}`);
+        const select = document.getElementById(`select-spieß-${index}`);
         const inputName = document.getElementById(`input-name-${index}`);
         const inputHours = document.getElementById(`input-hours-${index}`);
         const inputAddress = document.getElementById(`input-address-${index}`);
         const inputPhone = document.getElementById(`input-phone-${index}`);
 
         btn.addEventListener("click", () => {
-          const newStatus = select.value;
-          doenerLaeden[index].status = newStatus;
+          const newSpieß = select.value;
+          doenerLaeden[index].spieß = newSpieß;
           doenerLaeden[index].name = inputName.value;
           doenerLaeden[index].hours = inputHours.value;
           doenerLaeden[index].address = inputAddress.value;
           doenerLaeden[index].phone = inputPhone.value;
 
-          marker.setStyle({ color: getColor(newStatus) });
+          marker.setStyle({ color: getColor(newSpieß) });
 
           document.getElementById(`name-${index}`).innerText = inputName.value;
-          document.getElementById(`status-${index}`).innerText = newStatus;
+          document.getElementById(`spieß-${index}`).innerText = newSpieß;
           document.getElementById(`hours-${index}`).innerText = inputHours.value;
           document.getElementById(`address-${index}`).innerText = inputAddress.value;
           document.getElementById(`phone-${index}`).innerText = inputPhone.value;
@@ -76,7 +76,6 @@
       });
     }
 
-    // Lade Dönerläden aus JSON
     fetch('doener.json')
       .then(response => response.json())
       .then(data => {
@@ -84,23 +83,21 @@
         doenerLaeden.forEach((laden, index) => createMarker(laden, index));
       });
 
-    // Klick auf leere Karte → neuen Marker hinzufügen
     map.on('click', function(e) {
-      // Prüfen, ob Klick auf Marker: wenn ja, nichts tun
       if (e.originalEvent.target.classList.contains('leaflet-interactive')) return;
 
       const name = prompt("Name des Dönerladens:");
       if (!name) return;
 
-      const status = prompt("Status eingeben (Spieß da / Spieß aus / geschlossen):", "Spieß da");
-      if (!status) return;
+      const spieß = prompt("Spieß-Status eingeben (Spieß da / Spieß aus / geschlossen):", "Spieß da");
+      if (!spieß) return;
 
       const hours = prompt("Öffnungszeiten (optional):", "");
       const address = prompt("Adresse (optional):", "");
       const phone = prompt("Telefon (optional):", "");
 
       const index = doenerLaeden.length;
-      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, status, hours, address, phone };
+      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, spieß, hours, address, phone };
       doenerLaeden.push(newLaden);
       createMarker(newLaden, index);
     });
