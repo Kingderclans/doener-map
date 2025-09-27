@@ -1,0 +1,5 @@
+[
+  { "name": "Mustafa's Gemüse Kebap", "lat": 52.507, "lng": 13.402, "status": "Spieß da" },
+  { "name": "Kotti Döner", "lat": 52.505, "lng": 13.388, "status": "Spieß aus" },
+  { "name": "Imren Döner", "lat": 52.518, "lng": 13.410, "status": "geschlossen" }
+]
