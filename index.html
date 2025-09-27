@@ -1,1 +1,44 @@
-index.html
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Berlin Döner Spieß Map</title>
+  <style>
+    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+    body { margin: 0; padding: 0; }
+  </style>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Karte zentrieren auf Berlin
+    const map = L.map('map').setView([52.52, 13.405], 12);
+
+    // OpenStreetMap Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Beispiel-Dönerläden
+    const doenerLaeden = [
+      { name: "Mustafa's Gemüse Kebap", coords: [52.507, 13.402], status: "Spieß da" },
+      { name: "Kotti Döner", coords: [52.505, 13.388], status: "Spieß aus" },
+      { name: "Imren Döner", coords: [52.518, 13.410], status: "geschlossen" }
+    ];
+
+    // Marker hinzufügen
+    doenerLaeden.forEach(laden => {
+      const color = laden.status === "Spieß da" ? "green" :
+                    laden.status === "Spieß aus" ? "red" : "gray";
+      L.circleMarker(laden.coords, { color, radius: 8 }).addTo(map)
+       .bindPopup(`<b>${laden.name}</b><br>Status: ${laden.status}`);
+    });
+  </script>
+</body>
+</html>
+
