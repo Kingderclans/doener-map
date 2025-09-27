@@ -9,13 +9,11 @@
     input, select { margin-bottom: 4px; width: 100%; }
     button { margin-top: 4px; width: 100%; }
   </style>
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     let doenerLaeden = [];
@@ -29,7 +27,6 @@
     const getColor = status => status === "Spieß da" ? "green" :
                                status === "Spieß aus" ? "red" : "gray";
 
-    // Funktion, um Marker zu erstellen
     function createMarker(laden, index) {
       const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.status), radius: 8 }).addTo(map);
 
@@ -61,7 +58,6 @@
         const inputPhone = document.getElementById(`input-phone-${index}`);
 
         btn.addEventListener("click", () => {
-          // Werte übernehmen
           const newStatus = select.value;
           doenerLaeden[index].status = newStatus;
           doenerLaeden[index].name = inputName.value;
@@ -69,10 +65,8 @@
           doenerLaeden[index].address = inputAddress.value;
           doenerLaeden[index].phone = inputPhone.value;
 
-          // Marker-Farbe aktualisieren
           marker.setStyle({ color: getColor(newStatus) });
 
-          // Popup-Text aktualisieren
           document.getElementById(`name-${index}`).innerText = inputName.value;
           document.getElementById(`status-${index}`).innerText = newStatus;
           document.getElementById(`hours-${index}`).innerText = inputHours.value;
@@ -82,7 +76,7 @@
       });
     }
 
-    // Dönerläden aus JSON laden
+    // Lade Dönerläden aus JSON
     fetch('doener.json')
       .then(response => response.json())
       .then(data => {
@@ -90,8 +84,11 @@
         doenerLaeden.forEach((laden, index) => createMarker(laden, index));
       });
 
-    // Klick auf Karte → neuen Marker hinzufügen
+    // Klick auf leere Karte → neuen Marker hinzufügen
     map.on('click', function(e) {
+      // Prüfen, ob Klick auf Marker: wenn ja, nichts tun
+      if (e.originalEvent.target.classList.contains('leaflet-interactive')) return;
+
       const name = prompt("Name des Dönerladens:");
       if (!name) return;
 
