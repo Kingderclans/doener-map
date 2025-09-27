@@ -39,11 +39,48 @@ fetch('doener.json')
 
 
     // Marker hinzufügen
-    doenerLaeden.forEach(laden => {
-      const color = laden.status === "Spieß da" ? "green" :
-                    laden.status === "Spieß aus" ? "red" : "gray";
-      L.circleMarker(laden.coords, { color, radius: 8 }).addTo(map)
-       .bindPopup(`<b>${laden.name}</b><br>Status: ${laden.status}`);
+   doenerLaeden.forEach((laden, index) => {
+  const getColor = status => status === "Spieß da" ? "green" :
+                             status === "Spieß aus" ? "red" : "gray";
+
+  const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.status), radius: 8 }).addTo(map);
+
+  marker.bindPopup(`
+    <b>${laden.name}</b><br>
+    Status: <span id="status-${index}">${laden.status}</span><br>
+    <select id="select-${index}">
+      <option value="Spieß da">Spieß da</option>
+      <option value="Spieß aus">Spieß aus</option>
+      <option value="geschlossen">geschlossen</option>
+    </select>
+    <button onclick="updateStatus(${index})">Ändern</button>
+  `);
+});
+
+// Funktion zum Status ändern
+function updateStatus(index) {
+  const select = document.getElementById(`select-${index}`);
+  const status = select.value;
+  doenerLaeden[index].status = status;
+
+  // Farbe Marker ändern
+  const marker = map.eachLayer(layer => {
+    if(layer instanceof L.CircleMarker){
+      const lat = layer.getLatLng().lat;
+      const lng = layer.getLatLng().lng;
+      if(lat === doenerLaeden[index].lat && lng === doenerLaeden[index].lng){
+        const color = status === "Spieß da" ? "green" :
+                      status === "Spieß aus" ? "red" : "gray";
+        layer.setStyle({color});
+      }
+    }
+  });
+
+  // Popup-Text aktualisieren
+  const statusSpan = document.getElementById(`status-${index}`);
+  statusSpan.innerText = status;
+}
+
     });
   </script>
 </body>
