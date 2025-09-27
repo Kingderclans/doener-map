@@ -17,11 +17,45 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     // Beispiel-Dönerläden
-    const doenerLaeden = [
-      { name: "Mustafa's Gemüse Kebap", lat: 52.507, lng: 13.402, status: "Spieß da" },
-      { name: "Kotti Döner", lat: 52.505, lng: 13.388, status: "Spieß aus" },
-      { name: "Imren Döner", lat: 52.518, lng: 13.410, status: "geschlossen" }
-    ];
+  // Funktion zur Farbe je nach Status
+const getColor = status => status === "Spieß da" ? "green" :
+                           status === "Spieß aus" ? "red" : "gray";
+
+// Dönerläden aus JSON laden
+fetch('doener.json')
+  .then(response => response.json())
+  .then(doenerLaeden => {
+    doenerLaeden.forEach((laden, index) => {
+      const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.status), radius: 8 }).addTo(map);
+
+      marker.bindPopup(`
+        <b>${laden.name}</b><br>
+        Status: <span id="status-${index}">${laden.status}</span><br>
+        <select id="select-${index}">
+          <option value="Spieß da">Spieß da</option>
+          <option value="Spieß aus">Spieß aus</option>
+          <option value="geschlossen">geschlossen</option>
+        </select>
+        <button id="btn-${index}">Ändern</button>
+      `);
+
+      // EventListener für Popup-Button
+      marker.on("popupopen", () => {
+        const btn = document.getElementById(`btn-${index}`);
+        const select = document.getElementById(`select-${index}`);
+        btn.addEventListener("click", () => {
+          const status = select.value;
+          doenerLaeden[index].status = status;
+
+          // Marker-Farbe ändern
+          marker.setStyle({ color: getColor(status) });
+
+          // Popup-Text aktualisieren
+          document.getElementById(`status-${index}`).innerText = status;
+        });
+      });
+    });
+  });
 
     // Karte zentrieren auf Berlin
     const map = L.map('map').setView([52.52, 13.405], 12);
