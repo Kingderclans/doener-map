@@ -25,11 +25,18 @@
     }).addTo(map);
 
     // Beispiel-Dönerläden
-    const doenerLaeden = [
-      { name: "Mustafa's Gemüse Kebap", coords: [52.507, 13.402], status: "Spieß da" },
-      { name: "Kotti Döner", coords: [52.505, 13.388], status: "Spieß aus" },
-      { name: "Imren Döner", coords: [52.518, 13.410], status: "geschlossen" }
-    ];
+    // Dönerläden aus JSON laden
+fetch('doener.json')
+  .then(response => response.json())
+  .then(doenerLaeden => {
+    doenerLaeden.forEach(laden => {
+      const color = laden.status === "Spieß da" ? "green" :
+                    laden.status === "Spieß aus" ? "red" : "gray";
+      L.circleMarker([laden.lat, laden.lng], { color, radius: 8 }).addTo(map)
+       .bindPopup(`<b>${laden.name}</b><br>Status: ${laden.status}`);
+    });
+  });
+
 
     // Marker hinzufügen
     doenerLaeden.forEach(laden => {
