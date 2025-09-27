@@ -1,39 +1,70 @@
-doenerLaeden.forEach((laden, index) => {
-  // 1️⃣ Farbe bestimmen
-  const getColor = status => status === "Spieß da" ? "green" :
-                             status === "Spieß aus" ? "red" : "gray";
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Berlin Döner Spieß Map</title>
+  <style>
+    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
+    body { margin: 0; padding: 0; }
+  </style>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+  <div id="map"></div>
 
-  // 2️⃣ Marker erstellen und auf die Karte setzen
-  const marker = L.circleMarker([laden.lat, laden.lng], { 
-      color: getColor(laden.status), // Marker-Farbe
-      radius: 8 // Größe
-  }).addTo(map);
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Beispiel-Dönerläden
+    const doenerLaeden = [
+      { name: "Mustafa's Gemüse Kebap", lat: 52.507, lng: 13.402, status: "Spieß da" },
+      { name: "Kotti Döner", lat: 52.505, lng: 13.388, status: "Spieß aus" },
+      { name: "Imren Döner", lat: 52.518, lng: 13.410, status: "geschlossen" }
+    ];
 
-  // 3️⃣ Popup mit Infos + Dropdown + Button
-  marker.bindPopup(`
-    <b>${laden.name}</b><br>
-    Status: <span id="status-${index}">${laden.status}</span><br>
-    <select id="select-${index}">
-      <option value="Spieß da">Spieß da</option>
-      <option value="Spieß aus">Spieß aus</option>
-      <option value="geschlossen">geschlossen</option>
-    </select>
-    <button id="btn-${index}">Ändern</button>
-  `);
+    // Karte zentrieren auf Berlin
+    const map = L.map('map').setView([52.52, 13.405], 12);
 
-  // 4️⃣ EventListener, damit Button im Popup funktioniert
-  marker.on("popupopen", () => {
-    const btn = document.getElementById(`btn-${index}`);
-    const select = document.getElementById(`select-${index}`);
-    btn.addEventListener("click", () => {
-      const status = select.value;
-      doenerLaeden[index].status = status;
+    // OpenStreetMap Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-      // Marker-Farbe aktualisieren
-      marker.setStyle({ color: getColor(status) });
+    // Marker mit interaktivem Popup
+    doenerLaeden.forEach((laden, index) => {
+      const getColor = status => status === "Spieß da" ? "green" :
+                                 status === "Spieß aus" ? "red" : "gray";
 
-      // Popup-Status aktualisieren
-      document.getElementById(`status-${index}`).innerText = status;
+      const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.status), radius: 8 }).addTo(map);
+
+      marker.bindPopup(`
+        <b>${laden.name}</b><br>
+        Status: <span id="status-${index}">${laden.status}</span><br>
+        <select id="select-${index}">
+          <option value="Spieß da">Spieß da</option>
+          <option value="Spieß aus">Spieß aus</option>
+          <option value="geschlossen">geschlossen</option>
+        </select>
+        <button id="btn-${index}">Ändern</button>
+      `);
+
+      // EventListener für Button
+      marker.on("popupopen", () => {
+        const btn = document.getElementById(`btn-${index}`);
+        const select = document.getElementById(`select-${index}`);
+        btn.addEventListener("click", () => {
+          const status = select.value;
+          doenerLaeden[index].status = status;
+
+          // Marker-Farbe aktualisieren
+          marker.setStyle({ color: getColor(status) });
+
+          // Popup-Status aktualisieren
+          document.getElementById(`status-${index}`).innerText = status;
+        });
+      });
     });
-  });
-});
+  </script>
+</body>
+</html>
