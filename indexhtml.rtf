@@ -1,0 +1,123 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2820
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <!DOCTYPE html>\
+<html lang="de">\
+<head>\
+  <meta charset="UTF-8">\
+  <title>Berlin D\'f6ner Map \'96 Interaktiv</title>\
+  <style>\
+    #map \{ height: 100vh; width: 100%; margin: 0; padding: 0; \}\
+    body \{ margin: 0; padding: 0; \}\
+    input, select, button \{ margin-bottom: 4px; width: 100%; \}\
+  </style>\
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />\
+</head>\
+<body>\
+  <div id="map"></div>\
+\
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>\
+  <script>\
+    let doenerLaeden = [];\
+\
+    const map = L.map('map').setView([52.52, 13.405], 12);\
+\
+    L.tileLayer('https://\{s\}.tile.openstreetmap.org/\{z\}/\{x\}/\{y\}.png', \{\
+      attribution: '&copy; OpenStreetMap contributors'\
+    \}).addTo(map);\
+\
+    const getColor = spie\'df => spie\'df === "Spie\'df da" ? "green" :\
+                               spie\'df === "Spie\'df aus" ? "red" : "gray";\
+\
+    function createMarker(laden, index) \{\
+      const marker = L.circleMarker([laden.lat, laden.lng], \{ color: getColor(laden.spie\'df || laden.status), radius: 8 \}).addTo(map);\
+\
+      marker.bindPopup(`\
+        <b>Name:</b> <span id="name-$\{index\}">$\{laden.name\}</span><br>\
+        <b>Spie\'df:</b> <span id="spie\'df-$\{index\}">$\{laden.spie\'df || laden.status\}</span><br>\
+        <b>\'d6ffnungszeiten:</b> <span id="hours-$\{index\}">$\{laden.hours || ''\}</span><br>\
+        <b>Adresse:</b> <span id="address-$\{index\}">$\{laden.address || ''\}</span><br>\
+        <b>Telefon:</b> <span id="phone-$\{index\}">$\{laden.phone || ''\}</span><br>\
+        <b>Alternativen / Men\'fc:</b> <span id="menu-$\{index\}">$\{laden.menu || ''\}</span><br>\
+        <b>Datei:</b> <span id="file-$\{index\}">$\{laden.fileName || ''\}</span><br><br>\
+\
+        <input id="input-name-$\{index\}" value="$\{laden.name\}" placeholder="Name">\
+        <select id="select-spie\'df-$\{index\}">\
+          <option value="Spie\'df da" $\{laden.spie\'df === "Spie\'df da" || laden.status === "Spie\'df da" ? "selected" : ""\}>Spie\'df da</option>\
+          <option value="Spie\'df aus" $\{laden.spie\'df === "Spie\'df aus" || laden.status === "Spie\'df aus" ? "selected" : ""\}>Spie\'df aus</option>\
+          <option value="geschlossen" $\{laden.spie\'df === "geschlossen" || laden.status === "geschlossen" ? "selected" : ""\}>geschlossen</option>\
+        </select>\
+        <input id="input-hours-$\{index\}" value="$\{laden.hours || ''\}" placeholder="\'d6ffnungszeiten">\
+        <input id="input-address-$\{index\}" value="$\{laden.address || ''\}" placeholder="Adresse">\
+        <input id="input-phone-$\{index\}" value="$\{laden.phone || ''\}" placeholder="Telefon">\
+        <input id="input-menu-$\{index\}" value="$\{laden.menu || ''\}" placeholder="Alternativen / Men\'fc">\
+        <input type="file" id="file-upload-$\{index\}">\
+        <button id="btn-$\{index\}">\'c4ndern</button>\
+      `);\
+\
+      marker.on("popupopen", () => \{\
+        const btn = document.getElementById(`btn-$\{index\}`);\
+        const select = document.getElementById(`select-spie\'df-$\{index\}`);\
+        const inputName = document.getElementById(`input-name-$\{index\}`);\
+        const inputHours = document.getElementById(`input-hours-$\{index\}`);\
+        const inputAddress = document.getElementById(`input-address-$\{index\}`);\
+        const inputPhone = document.getElementById(`input-phone-$\{index\}`);\
+        const inputMenu = document.getElementById(`input-menu-$\{index\}`);\
+        const fileUpload = document.getElementById(`file-upload-$\{index\}`);\
+\
+        btn.addEventListener("click", () => \{\
+          const newSpie\'df = select.value;\
+          doenerLaeden[index].spie\'df = newSpie\'df;\
+          doenerLaeden[index].name = inputName.value;\
+          doenerLaeden[index].hours = inputHours.value;\
+          doenerLaeden[index].address = inputAddress.value;\
+          doenerLaeden[index].phone = inputPhone.value;\
+          doenerLaeden[index].menu = inputMenu.value;\
+\
+          if (fileUpload.files.length > 0) \{\
+            doenerLaeden[index].fileName = fileUpload.files[0].name;\
+          \}\
+\
+          marker.setStyle(\{ color: getColor(newSpie\'df) \});\
+\
+          document.getElementById(`name-$\{index\}`).innerText = inputName.value;\
+          document.getElementById(`spie\'df-$\{index\}`).innerText = newSpie\'df;\
+          document.getElementById(`hours-$\{index\}`).innerText = inputHours.value;\
+          document.getElementById(`address-$\{index\}`).innerText = inputAddress.value;\
+          document.getElementById(`phone-$\{index\}`).innerText = inputPhone.value;\
+          document.getElementById(`menu-$\{index\}`).innerText = inputMenu.value;\
+          document.getElementById(`file-$\{index\}`).innerText = doenerLaeden[index].fileName || '';\
+\
+          localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));\
+        \});\
+      \});\
+    \}\
+\
+    // Daten laden: LocalStorage zuerst, dann fallback auf doener.json\
+    const storedData = localStorage.getItem('doenerLaeden');\
+    if(storedData) \{\
+        try \{\
+            doenerLaeden = JSON.parse(storedData);\
+            doenerLaeden.forEach((laden, index) => createMarker(laden, index));\
+        \} catch(err) \{\
+            console.log("Fehler beim Laden der gespeicherten Daten:", err);\
+        \}\
+    \} else \{\
+        fetch('doener.json')\
+          .then(response => response.json())\
+          .then(data => \{\
+            doenerLaeden = data;\
+            doenerLaeden.forEach((laden, index) => createMarker(laden, index));\
+          \})\
+          .catch(err => console.log("Fehler beim Laden von doener.json:", err));\
+    \}\
+\
+    // **Karten-Klick zum Hinzuf\'fcgen deaktiviert**\
+    // map.on('click', ...) wurde entfernt\
+  </script>\
+</body>\
+</html>}
