@@ -2,167 +2,48 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Berlin Döner Map – Firebase Version</title>
+  <title>Berlin Döner Map – Minimal Firebase</title>
   <style>
-    #map { height: 80vh; width: 100%; margin:0; padding:0; }
-    body { margin:0; padding:0; font-family: sans-serif; }
-    #loginForm { margin: 10px; }
-    input, button { margin-bottom: 5px; display: block; width: 200px; }
+    #map { height: 100vh; width: 100%; margin:0; padding:0; }
+    body { margin:0; padding:0; font-family:sans-serif; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-  <div id="loginForm">
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Passwort">
-    <select id="roleSelect">
-      <option value="user">User</option>
-      <option value="anbieter">Anbieter</option>
-    </select>
-    <button id="registerBtn">Registrieren</button>
-    <button id="loginBtn">Login</button>
-    <button id="logoutBtn">Logout</button>
-  </div>
   <div id="map"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <script>
-  // ===== Firebase Config =====
-  const firebaseConfig = {
-    apiKey: "DEINE_API_KEY",
-    authDomain: "dein-projekt.firebaseapp.com",
-    projectId: "dein-projekt",
-    storageBucket: "dein-projekt.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:abcdefgh"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const storage = firebase.storage();
+    // ===== Firebase Config =====
+    const firebaseConfig = {
+      apiKey: "DEINE_API_KEY",
+      authDomain: "dein-projekt.firebaseapp.com",
+      projectId: "dein-projekt",
+      storageBucket: "dein-projekt.appspot.com",
+      messagingSenderId: "1234567890",
+      appId: "1:1234567890:web:abcdefgh"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const storage = firebase.storage();
 
-  let currentUser = null;
-  let currentRole = null;
+    // ===== Map Setup =====
+    const map = L.map('map').setView([52.52, 13.405], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-  // ===== Authentication =====
-  document.getElementById("registerBtn").onclick = async () => {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    const role = document.getElementById("roleSelect").value;
-    if (!email || !password) return alert("Email & Passwort ausfüllen");
+    function getColor(spieß) {
+      return spieß === "Spieß da" ? "green" : spieß === "Spieß aus" ? "red" : "gray";
+    }
 
-    try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      await db.collection("users").doc(userCredential.user.uid).set({ role });
-      alert("Registrierung erfolgreich!");
-    } catch(err) { console.log(err); alert(err.message); }
-  };
-
-  document.getElementById("loginBtn").onclick = async () => {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    if (!email || !password) return alert("Email & Passwort ausfüllen");
-
-    try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
-      currentUser = userCredential.user;
-      const doc = await db.collection("users").doc(currentUser.uid).get();
-      currentRole = doc.data().role;
-      alert("Login erfolgreich! Rolle: " + currentRole);
-      loadMarkers();
-    } catch(err) { console.log(err); alert(err.message); }
-  };
-
-  document.getElementById("logoutBtn").onclick = async () => {
-    await auth.signOut();
-    currentUser = null;
-    currentRole = null;
-    alert("Abgemeldet");
-    location.reload();
-  };
-
-  // ===== Map Setup =====
-  const map = L.map('map').setView([52.52,13.405],12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  // ===== Marker-Funktion =====
-  async function loadMarkers() {
-    const snapshot = await db.collection("markers").get();
-    snapshot.forEach(doc => {
-      const laden = doc.data();
-      const index = doc.id;
-      const color = laden.spieß === "Spieß da" ? "green" : laden.spieß === "Spieß aus" ? "red" : "gray";
-
-      const marker = L.circleMarker([laden.lat, laden.lng], { color, radius: 8 }).addTo(map);
-      let fileLink = laden.fileUrl ? `<a href="${laden.fileUrl}" target="_blank">Datei</a>` : "";
-      
-      const popupContent = `
-        <b>Name:</b> ${laden.name}<br>
-        <b>Spieß:</b> ${laden.spieß}<br>
-        <b>Öffnungszeiten:</b> ${laden.öffnungszeiten || ''}<br>
-        <b>Adresse:</b> ${laden.adresse || ''}<br>
-        <b>Telefon:</b> ${laden.telefon || ''}<br>
-        <b>Alternativen / Menü:</b> ${laden.menu || ''}<br>
-        ${fileLink}<br><br>
-        ${currentRole === 'anbieter' ? `
-        <input id="input-name-${index}" value="${laden.name}" placeholder="Name">
-        <select id="select-spieß-${index}">
-          <option value="Spieß da" ${laden.spieß==="Spieß da" ? "selected":""}>Spieß da</option>
-          <option value="Spieß aus" ${laden.spieß==="Spieß aus" ? "selected":""}>Spieß aus</option>
-          <option value="geschlossen" ${laden.spieß==="geschlossen" ? "selected":""}>geschlossen</option>
-        </select>
-        <input id="input-hours-${index}" value="${laden.öffnungszeiten || ''}" placeholder="Öffnungszeiten">
-        <input id="input-address-${index}" value="${laden.adresse || ''}" placeholder="Adresse">
-        <input id="input-phone-${index}" value="${laden.telefon || ''}" placeholder="Telefon">
-        <input id="input-menu-${index}" value="${laden.menu || ''}" placeholder="Alternativen / Menü">
-        <input type="file" id="file-upload-${index}">
-        <button id="btn-${index}">Speichern</button>` : ""}
-      `;
-      marker.bindPopup(popupContent);
-
-      marker.on("popupopen", () => {
-        if(currentRole !== 'anbieter') return; // User kann nichts bearbeiten
-        const btn = document.getElementById(`btn-${index}`);
-        btn.onclick = async () => {
-          const newName = document.getElementById(`input-name-${index}`).value;
-          const newSpieß = document.getElementById(`select-spieß-${index}`).value;
-          const newHours = document.getElementById(`input-hours-${index}`).value;
-          const newAddress = document.getElementById(`input-address-${index}`).value;
-          const newPhone = document.getElementById(`input-phone-${index}`).value;
-          const newMenu = document.getElementById(`input-menu-${index}`).value;
-          const fileUpload = document.getElementById(`file-upload-${index}`);
-          let fileUrl = laden.fileUrl;
-
-          if(fileUpload.files.length > 0){
-            const fileRef = storage.ref().child(fileUpload.files[0].name);
-            await fileRef.put(fileUpload.files[0]);
-            fileUrl = await fileRef.getDownloadURL();
-          }
-
-          await db.collection("markers").doc(index).update({
-            name: newName,
-            spieß: newSpieß,
-            öffnungszeiten: newHours,
-            adresse: newAddress,
-            telefon: newPhone,
-            menu: newMenu,
-            fileUrl
-          });
-          alert("Marker gespeichert!");
-          marker.closePopup();
-          loadMarkers();
-        };
-      });
-    });
-  }
-
-  </script>
-</body>
-</html>
+    // ===== Marker laden =====
+    async function loadMarkers() {
+      const snapshot = await db.collection("markers").get();
+      snapshot.forEach(doc => {
+        const laden = doc.data();
+        const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.spieß || "Spi
