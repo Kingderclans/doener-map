@@ -85,7 +85,6 @@
           document.getElementById(`menu-${index}`).innerText = inputMenu.value;
           document.getElementById(`file-${index}`).innerText = doenerLaeden[index].fileName || '';
 
-          // LocalStorage speichern
           localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
         });
       });
@@ -110,28 +109,8 @@
           .catch(err => console.log("Fehler beim Laden von doener.json:", err));
     }
 
-    // Marker hinzufügen
-    map.on('click', function(e) {
-      if (e.originalEvent.target.classList.contains('leaflet-interactive')) return;
-
-      const name = prompt("Name des Dönerladens:");
-      if (!name) return;
-
-      const spieß = prompt("Spieß-Status eingeben (Spieß da / Spieß aus / geschlossen):", "Spieß da");
-      if (!spieß) return;
-
-      const hours = prompt("Öffnungszeiten (optional):", "");
-      const address = prompt("Adresse (optional):", "");
-      const phone = prompt("Telefon (optional):", "");
-      const menu = prompt("Alternativen / Menü (optional):", "");
-
-      const index = doenerLaeden.length;
-      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, spieß, hours, address, phone, menu, fileName: '' };
-      doenerLaeden.push(newLaden);
-      createMarker(newLaden, index);
-
-      localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
-    });
+    // **Karten-Klick zum Hinzufügen deaktiviert**
+    // map.on('click', ...) wurde entfernt
   </script>
 </body>
 </html>
