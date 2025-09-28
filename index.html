@@ -46,4 +46,44 @@
       const snapshot = await db.collection("markers").get();
       snapshot.forEach(doc => {
         const laden = doc.data();
-        const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.spieß || "Spi
+        const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.spieß || "Spieß da"), radius:8 }).addTo(map);
+
+        let fileLink = laden.fileUrl ? `<a href="${laden.fileUrl}" target="_blank">Datei ansehen</a>` : "";
+
+        const popupContent = `
+          <b>Name:</b> ${laden.name}<br>
+          <b>Spieß:</b> ${laden.spieß || ''}<br>
+          <b>Öffnungszeiten:</b> ${laden.öffnungszeiten || ''}<br>
+          <b>Adresse:</b> ${laden.adresse || ''}<br>
+          <b>Telefon:</b> ${laden.telefon || ''}<br>
+          <b>Alternativen / Menü:</b> ${laden.menu || ''}<br>
+          ${fileLink}<br><br>
+          <input type="file" id="file-upload-${doc.id}">
+          <button id="btn-${doc.id}">Datei hochladen</button>
+        `;
+
+        marker.bindPopup(popupContent);
+
+        marker.on("popupopen", () => {
+          const btn = document.getElementById(`btn-${doc.id}`);
+          const fileInput = document.getElementById(`file-upload-${doc.id}`);
+
+          btn.onclick = async () => {
+            if(fileInput.files.length === 0) return alert("Datei auswählen");
+            const file = fileInput.files[0];
+            const fileRef = storage.ref().child(file.name);
+            await fileRef.put(file);
+            const fileUrl = await fileRef.getDownloadURL();
+            await db.collection("markers").doc(doc.id).update({ fileUrl });
+            alert("Datei hochgeladen!");
+            marker.closePopup();
+            loadMarkers();
+          };
+        });
+      });
+    }
+
+    loadMarkers();
+  </script>
+</body>
+</html>
