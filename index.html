@@ -57,4 +57,81 @@
         const select = document.getElementById(`select-spieß-${index}`);
         const inputName = document.getElementById(`input-name-${index}`);
         const inputHours = document.getElementById(`input-hours-${index}`);
-        const inputAddress
+        const inputAddress = document.getElementById(`input-address-${index}`);
+        const inputPhone = document.getElementById(`input-phone-${index}`);
+        const inputMenu = document.getElementById(`input-menu-${index}`);
+        const fileUpload = document.getElementById(`file-upload-${index}`);
+
+        btn.addEventListener("click", () => {
+          const newSpieß = select.value;
+          doenerLaeden[index].spieß = newSpieß;
+          doenerLaeden[index].name = inputName.value;
+          doenerLaeden[index].hours = inputHours.value;
+          doenerLaeden[index].address = inputAddress.value;
+          doenerLaeden[index].phone = inputPhone.value;
+          doenerLaeden[index].menu = inputMenu.value;
+
+          if (fileUpload.files.length > 0) {
+            doenerLaeden[index].fileName = fileUpload.files[0].name;
+          }
+
+          marker.setStyle({ color: getColor(newSpieß) });
+
+          document.getElementById(`name-${index}`).innerText = inputName.value;
+          document.getElementById(`spieß-${index}`).innerText = newSpieß;
+          document.getElementById(`hours-${index}`).innerText = inputHours.value;
+          document.getElementById(`address-${index}`).innerText = inputAddress.value;
+          document.getElementById(`phone-${index}`).innerText = inputPhone.value;
+          document.getElementById(`menu-${index}`).innerText = inputMenu.value;
+          document.getElementById(`file-${index}`).innerText = doenerLaeden[index].fileName || '';
+
+          // LocalStorage speichern
+          localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
+        });
+      });
+    }
+
+    // Daten laden: LocalStorage zuerst, dann fallback auf doener.json
+    const storedData = localStorage.getItem('doenerLaeden');
+    if(storedData) {
+        try {
+            doenerLaeden = JSON.parse(storedData);
+            doenerLaeden.forEach((laden, index) => createMarker(laden, index));
+        } catch(err) {
+            console.log("Fehler beim Laden der gespeicherten Daten:", err);
+        }
+    } else {
+        fetch('doener.json')
+          .then(response => response.json())
+          .then(data => {
+            doenerLaeden = data;
+            doenerLaeden.forEach((laden, index) => createMarker(laden, index));
+          })
+          .catch(err => console.log("Fehler beim Laden von doener.json:", err));
+    }
+
+    // Marker hinzufügen
+    map.on('click', function(e) {
+      if (e.originalEvent.target.classList.contains('leaflet-interactive')) return;
+
+      const name = prompt("Name des Dönerladens:");
+      if (!name) return;
+
+      const spieß = prompt("Spieß-Status eingeben (Spieß da / Spieß aus / geschlossen):", "Spieß da");
+      if (!spieß) return;
+
+      const hours = prompt("Öffnungszeiten (optional):", "");
+      const address = prompt("Adresse (optional):", "");
+      const phone = prompt("Telefon (optional):", "");
+      const menu = prompt("Alternativen / Menü (optional):", "");
+
+      const index = doenerLaeden.length;
+      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, spieß, hours, address, phone, menu, fileName: '' };
+      doenerLaeden.push(newLaden);
+      createMarker(newLaden, index);
+
+      localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
+    });
+  </script>
+</body>
+</html>
