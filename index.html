@@ -6,8 +6,7 @@
   <style>
     #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
     body { margin: 0; padding: 0; }
-    input, select { margin-bottom: 4px; width: 100%; }
-    button { margin-top: 4px; width: 100%; }
+    input, select, button { margin-bottom: 4px; width: 100%; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
@@ -36,7 +35,8 @@
         <b>Öffnungszeiten:</b> <span id="hours-${index}">${laden.hours || ''}</span><br>
         <b>Adresse:</b> <span id="address-${index}">${laden.address || ''}</span><br>
         <b>Telefon:</b> <span id="phone-${index}">${laden.phone || ''}</span><br>
-        <b>Alternativen / Menü:</b> <span id="menu-${index}">${laden.menu || ''}</span><br><br>
+        <b>Alternativen / Menü:</b> <span id="menu-${index}">${laden.menu || ''}</span><br>
+        <b>Datei:</b> <span id="file-${index}">${laden.fileName || ''}</span><br><br>
 
         <input id="input-name-${index}" value="${laden.name}" placeholder="Name">
         <select id="select-spieß-${index}">
@@ -48,6 +48,7 @@
         <input id="input-address-${index}" value="${laden.address || ''}" placeholder="Adresse">
         <input id="input-phone-${index}" value="${laden.phone || ''}" placeholder="Telefon">
         <input id="input-menu-${index}" value="${laden.menu || ''}" placeholder="Alternativen / Menü">
+        <input type="file" id="file-upload-${index}">
         <button id="btn-${index}">Ändern</button>
       `);
 
@@ -59,6 +60,7 @@
         const inputAddress = document.getElementById(`input-address-${index}`);
         const inputPhone = document.getElementById(`input-phone-${index}`);
         const inputMenu = document.getElementById(`input-menu-${index}`);
+        const fileUpload = document.getElementById(`file-upload-${index}`);
 
         btn.addEventListener("click", () => {
           const newSpieß = select.value;
@@ -69,6 +71,11 @@
           doenerLaeden[index].phone = inputPhone.value;
           doenerLaeden[index].menu = inputMenu.value;
 
+          // Datei nur speichern, wenn eine ausgewählt wurde
+          if (fileUpload.files.length > 0) {
+            doenerLaeden[index].fileName = fileUpload.files[0].name;
+          }
+
           marker.setStyle({ color: getColor(newSpieß) });
 
           document.getElementById(`name-${index}`).innerText = inputName.value;
@@ -77,6 +84,7 @@
           document.getElementById(`address-${index}`).innerText = inputAddress.value;
           document.getElementById(`phone-${index}`).innerText = inputPhone.value;
           document.getElementById(`menu-${index}`).innerText = inputMenu.value;
+          document.getElementById(`file-${index}`).innerText = doenerLaeden[index].fileName || '';
         });
       });
     }
@@ -103,7 +111,7 @@
       const menu = prompt("Alternativen / Menü (optional):", "");
 
       const index = doenerLaeden.length;
-      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, spieß, hours, address, phone, menu };
+      const newLaden = { name, lat: e.latlng.lat, lng: e.latlng.lng, spieß, hours, address, phone, menu, fileName: '' };
       doenerLaeden.push(newLaden);
       createMarker(newLaden, index);
     });
