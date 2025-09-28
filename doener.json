@@ -1,6 +1,35 @@
 [
-  { "name": "Mustafa's Gemüse Kebap", "lat": 52.507, "lng": 13.402, "status": "Spieß da" },
-  { "name": "Kotti Döner", "lat": 52.505, "lng": 13.388, "status": "Spieß aus" },
-  { "name": "Imren Döner", "lat": 52.518, "lng": 13.410, "status": "geschlossen" }
-  [
+  {
+    "name": "Muster Döner",
+    "lat": 52.5200,
+    "lng": 13.4050,
+    "spieß": "Spieß da",
+    "hours": "Mo-So 11:00–23:00",
+    "address": "Musterstraße 1, 10115 Berlin",
+    "phone": "+49 30 12345678",
+    "menu": "Döner, Dürüm, Falafel",
+    "fileName": ""
+  },
+  {
+    "name": "Lecker Späti",
+    "lat": 52.5235,
+    "lng": 13.4095,
+    "spieß": "geschlossen",
+    "hours": "Mo-Do 08:00–02:00, Fr-So 08:00–04:00",
+    "address": "Nebenstraße 8, 10117 Berlin",
+    "phone": "+49 30 23456789",
+    "menu": "Bier, Snacks, Getränke",
+    "fileName": ""
+  },
+  {
+    "name": "Kiez Kebab",
+    "lat": 52.5150,
+    "lng": 13.3920,
+    "spieß": "Spieß aus",
+    "hours": "Di-So 10:00–22:00",
+    "address": "Kiezstraße 3, 10999 Berlin",
+    "phone": "+49 30 98765432",
+    "menu": "Gemüse Döner, Lahmacun, Ayran",
+    "fileName": ""
+  }
 ]

@@ -8,27 +8,53 @@
     body { margin: 0; padding: 0; }
     input, select, button { margin-bottom: 4px; width: 100%; }
   </style>
+  <!-- Leaflet‑Stylesheet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
+  <!-- Kartencontainer -->
   <div id="map"></div>
 
+  <!-- Leaflet‑Script -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
+    /**
+     * Dieses Frontend lädt eine Liste von Dönerläden aus dem lokalen Speicher
+     * (localStorage) oder aus der Datei `doener.json` und zeigt sie als farbige
+     * Marker auf der Karte an. Durch Klick auf einen Marker öffnet sich ein
+     * Popup, das die gespeicherten Daten anzeigt und die Bearbeitung ermöglicht.
+     * Änderungen werden im localStorage gespeichert, sodass sie beim nächsten
+     * Laden wieder vorhanden sind. Eine Anbindung an ein Backend kann leicht
+     * ergänzt werden (siehe README.md).
+     */
+
     let doenerLaeden = [];
 
+    // Karte mit Zentrum Berlin initialisieren
     const map = L.map('map').setView([52.52, 13.405], 12);
 
+    // OSM‑Tile‑Layer hinzufügen
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    const getColor = spieß => spieß === "Spieß da" ? "green" :
-                               spieß === "Spieß aus" ? "red" : "gray";
+    // Farbe nach Spieß‑Status bestimmen
+    const getColor = spieß => spieß === 'Spieß da' ? 'green' :
+                               spieß === 'Spieß aus' ? 'red' : 'gray';
 
+    /**
+     * Für jeden Laden einen Marker erstellen. Der Marker ist ein Kreis mit
+     * Farbcodierung je nach Spieß‑Status. Das Popup enthält sowohl die
+     * aktuelle Anzeige als auch Eingabefelder zur Bearbeitung. Änderungen
+     * aktualisieren den Marker, die Daten und speichern sie in localStorage.
+     */
     function createMarker(laden, index) {
-      const marker = L.circleMarker([laden.lat, laden.lng], { color: getColor(laden.spieß || laden.status), radius: 8 }).addTo(map);
+      const marker = L.circleMarker([laden.lat, laden.lng], {
+        color: getColor(laden.spieß || laden.status),
+        radius: 8
+      }).addTo(map);
 
+      // Popup‑Inhalt als Template‑String
       marker.bindPopup(`
         <b>Name:</b> <span id="name-${index}">${laden.name}</span><br>
         <b>Spieß:</b> <span id="spieß-${index}">${laden.spieß || laden.status}</span><br>
@@ -40,9 +66,9 @@
 
         <input id="input-name-${index}" value="${laden.name}" placeholder="Name">
         <select id="select-spieß-${index}">
-          <option value="Spieß da" ${laden.spieß === "Spieß da" || laden.status === "Spieß da" ? "selected" : ""}>Spieß da</option>
-          <option value="Spieß aus" ${laden.spieß === "Spieß aus" || laden.status === "Spieß aus" ? "selected" : ""}>Spieß aus</option>
-          <option value="geschlossen" ${laden.spieß === "geschlossen" || laden.status === "geschlossen" ? "selected" : ""}>geschlossen</option>
+          <option value="Spieß da" ${laden.spieß === 'Spieß da' || laden.status === 'Spieß da' ? 'selected' : ''}>Spieß da</option>
+          <option value="Spieß aus" ${laden.spieß === 'Spieß aus' || laden.status === 'Spieß aus' ? 'selected' : ''}>Spieß aus</option>
+          <option value="geschlossen" ${laden.spieß === 'geschlossen' || laden.status === 'geschlossen' ? 'selected' : ''}>geschlossen</option>
         </select>
         <input id="input-hours-${index}" value="${laden.hours || ''}" placeholder="Öffnungszeiten">
         <input id="input-address-${index}" value="${laden.address || ''}" placeholder="Adresse">
@@ -52,7 +78,8 @@
         <button id="btn-${index}">Ändern</button>
       `);
 
-      marker.on("popupopen", () => {
+      // Beim Öffnen des Popups Event‑Handler registrieren
+      marker.on('popupopen', () => {
         const btn = document.getElementById(`btn-${index}`);
         const select = document.getElementById(`select-spieß-${index}`);
         const inputName = document.getElementById(`input-name-${index}`);
@@ -62,7 +89,7 @@
         const inputMenu = document.getElementById(`input-menu-${index}`);
         const fileUpload = document.getElementById(`file-upload-${index}`);
 
-        btn.addEventListener("click", () => {
+        btn.addEventListener('click', () => {
           const newSpieß = select.value;
           doenerLaeden[index].spieß = newSpieß;
           doenerLaeden[index].name = inputName.value;
@@ -71,12 +98,15 @@
           doenerLaeden[index].phone = inputPhone.value;
           doenerLaeden[index].menu = inputMenu.value;
 
+          // Wenn eine Datei hochgeladen wurde, nur den Dateinamen speichern
           if (fileUpload.files.length > 0) {
             doenerLaeden[index].fileName = fileUpload.files[0].name;
           }
 
+          // Markerfarbe aktualisieren
           marker.setStyle({ color: getColor(newSpieß) });
 
+          // Felder im Popup aktualisieren
           document.getElementById(`name-${index}`).innerText = inputName.value;
           document.getElementById(`spieß-${index}`).innerText = newSpieß;
           document.getElementById(`hours-${index}`).innerText = inputHours.value;
@@ -85,32 +115,34 @@
           document.getElementById(`menu-${index}`).innerText = inputMenu.value;
           document.getElementById(`file-${index}`).innerText = doenerLaeden[index].fileName || '';
 
+          // Persistieren im localStorage
           localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
         });
       });
     }
 
-    // Daten laden: LocalStorage zuerst, dann fallback auf doener.json
+    // Daten laden: zuerst aus localStorage, dann Fallback auf doener.json
     const storedData = localStorage.getItem('doenerLaeden');
-    if(storedData) {
-        try {
-            doenerLaeden = JSON.parse(storedData);
-            doenerLaeden.forEach((laden, index) => createMarker(laden, index));
-        } catch(err) {
-            console.log("Fehler beim Laden der gespeicherten Daten:", err);
-        }
+    if (storedData) {
+      try {
+        doenerLaeden = JSON.parse(storedData);
+        doenerLaeden.forEach((laden, index) => createMarker(laden, index));
+      } catch (err) {
+        console.log('Fehler beim Laden der gespeicherten Daten:', err);
+      }
     } else {
-        fetch('doener.json')
-          .then(response => response.json())
-          .then(data => {
-            doenerLaeden = data;
-            doenerLaeden.forEach((laden, index) => createMarker(laden, index));
-          })
-          .catch(err => console.log("Fehler beim Laden von doener.json:", err));
+      // Fallback: Daten aus der Datei doener.json abrufen
+      fetch('doener.json')
+        .then(response => response.json())
+        .then(data => {
+          doenerLaeden = data;
+          doenerLaeden.forEach((laden, index) => createMarker(laden, index));
+        })
+        .catch(err => console.log('Fehler beim Laden von doener.json:', err));
     }
 
-    // **Karten-Klick zum Hinzufügen deaktiviert**
-    // map.on('click', ...) wurde entfernt
+    // Hinweis: Die Möglichkeit, durch Klick auf die Karte neue Marker hinzuzufügen,
+    // wurde bewusst entfernt, um unkontrolliertes Hinzufügen zu verhindern.
   </script>
 </body>
 </html>
