@@ -2,147 +2,167 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Berlin Döner Map – Interaktiv</title>
+  <title>Berlin Döner Map – Firebase Version</title>
   <style>
-    #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
-    body { margin: 0; padding: 0; }
-    input, select, button { margin-bottom: 4px; width: 100%; }
+    #map { height: 80vh; width: 100%; margin:0; padding:0; }
+    body { margin:0; padding:0; font-family: sans-serif; }
+    #loginForm { margin: 10px; }
+    input, button { margin-bottom: 5px; display: block; width: 200px; }
   </style>
-  <!-- Leaflet‑Stylesheet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-  <!-- Kartencontainer -->
+  <div id="loginForm">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Passwort">
+    <select id="roleSelect">
+      <option value="user">User</option>
+      <option value="anbieter">Anbieter</option>
+    </select>
+    <button id="registerBtn">Registrieren</button>
+    <button id="loginBtn">Login</button>
+    <button id="logoutBtn">Logout</button>
+  </div>
   <div id="map"></div>
 
-  <!-- Leaflet‑Script -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <script>
-    /**
-     * Dieses Frontend lädt eine Liste von Dönerläden aus dem lokalen Speicher
-     * (localStorage) oder aus der Datei `doener.json` und zeigt sie als farbige
-     * Marker auf der Karte an. Durch Klick auf einen Marker öffnet sich ein
-     * Popup, das die gespeicherten Daten anzeigt und die Bearbeitung ermöglicht.
-     * Änderungen werden im localStorage gespeichert, sodass sie beim nächsten
-     * Laden wieder vorhanden sind. Eine Anbindung an ein Backend kann leicht
-     * ergänzt werden (siehe README.md).
-     */
+  // ===== Firebase Config =====
+  const firebaseConfig = {
+    apiKey: "DEINE_API_KEY",
+    authDomain: "dein-projekt.firebaseapp.com",
+    projectId: "dein-projekt",
+    storageBucket: "dein-projekt.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdefgh"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
 
-    let doenerLaeden = [];
+  let currentUser = null;
+  let currentRole = null;
 
-    // Karte mit Zentrum Berlin initialisieren
-    const map = L.map('map').setView([52.52, 13.405], 12);
+  // ===== Authentication =====
+  document.getElementById("registerBtn").onclick = async () => {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const role = document.getElementById("roleSelect").value;
+    if (!email || !password) return alert("Email & Passwort ausfüllen");
 
-    // OSM‑Tile‑Layer hinzufügen
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    try {
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      await db.collection("users").doc(userCredential.user.uid).set({ role });
+      alert("Registrierung erfolgreich!");
+    } catch(err) { console.log(err); alert(err.message); }
+  };
 
-    // Farbe nach Spieß‑Status bestimmen
-    const getColor = spieß => spieß === 'Spieß da' ? 'green' :
-                               spieß === 'Spieß aus' ? 'red' : 'gray';
+  document.getElementById("loginBtn").onclick = async () => {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    if (!email || !password) return alert("Email & Passwort ausfüllen");
 
-    /**
-     * Für jeden Laden einen Marker erstellen. Der Marker ist ein Kreis mit
-     * Farbcodierung je nach Spieß‑Status. Das Popup enthält sowohl die
-     * aktuelle Anzeige als auch Eingabefelder zur Bearbeitung. Änderungen
-     * aktualisieren den Marker, die Daten und speichern sie in localStorage.
-     */
-    function createMarker(laden, index) {
-      const marker = L.circleMarker([laden.lat, laden.lng], {
-        color: getColor(laden.spieß || laden.status),
-        radius: 8
-      }).addTo(map);
+    try {
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      currentUser = userCredential.user;
+      const doc = await db.collection("users").doc(currentUser.uid).get();
+      currentRole = doc.data().role;
+      alert("Login erfolgreich! Rolle: " + currentRole);
+      loadMarkers();
+    } catch(err) { console.log(err); alert(err.message); }
+  };
 
-      // Popup‑Inhalt als Template‑String
-      marker.bindPopup(`
-        <b>Name:</b> <span id="name-${index}">${laden.name}</span><br>
-        <b>Spieß:</b> <span id="spieß-${index}">${laden.spieß || laden.status}</span><br>
-        <b>Öffnungszeiten:</b> <span id="hours-${index}">${laden.hours || ''}</span><br>
-        <b>Adresse:</b> <span id="address-${index}">${laden.address || ''}</span><br>
-        <b>Telefon:</b> <span id="phone-${index}">${laden.phone || ''}</span><br>
-        <b>Alternativen / Menü:</b> <span id="menu-${index}">${laden.menu || ''}</span><br>
-        <b>Datei:</b> <span id="file-${index}">${laden.fileName || ''}</span><br><br>
+  document.getElementById("logoutBtn").onclick = async () => {
+    await auth.signOut();
+    currentUser = null;
+    currentRole = null;
+    alert("Abgemeldet");
+    location.reload();
+  };
 
+  // ===== Map Setup =====
+  const map = L.map('map').setView([52.52,13.405],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // ===== Marker-Funktion =====
+  async function loadMarkers() {
+    const snapshot = await db.collection("markers").get();
+    snapshot.forEach(doc => {
+      const laden = doc.data();
+      const index = doc.id;
+      const color = laden.spieß === "Spieß da" ? "green" : laden.spieß === "Spieß aus" ? "red" : "gray";
+
+      const marker = L.circleMarker([laden.lat, laden.lng], { color, radius: 8 }).addTo(map);
+      let fileLink = laden.fileUrl ? `<a href="${laden.fileUrl}" target="_blank">Datei</a>` : "";
+      
+      const popupContent = `
+        <b>Name:</b> ${laden.name}<br>
+        <b>Spieß:</b> ${laden.spieß}<br>
+        <b>Öffnungszeiten:</b> ${laden.öffnungszeiten || ''}<br>
+        <b>Adresse:</b> ${laden.adresse || ''}<br>
+        <b>Telefon:</b> ${laden.telefon || ''}<br>
+        <b>Alternativen / Menü:</b> ${laden.menu || ''}<br>
+        ${fileLink}<br><br>
+        ${currentRole === 'anbieter' ? `
         <input id="input-name-${index}" value="${laden.name}" placeholder="Name">
         <select id="select-spieß-${index}">
-          <option value="Spieß da" ${laden.spieß === 'Spieß da' || laden.status === 'Spieß da' ? 'selected' : ''}>Spieß da</option>
-          <option value="Spieß aus" ${laden.spieß === 'Spieß aus' || laden.status === 'Spieß aus' ? 'selected' : ''}>Spieß aus</option>
-          <option value="geschlossen" ${laden.spieß === 'geschlossen' || laden.status === 'geschlossen' ? 'selected' : ''}>geschlossen</option>
+          <option value="Spieß da" ${laden.spieß==="Spieß da" ? "selected":""}>Spieß da</option>
+          <option value="Spieß aus" ${laden.spieß==="Spieß aus" ? "selected":""}>Spieß aus</option>
+          <option value="geschlossen" ${laden.spieß==="geschlossen" ? "selected":""}>geschlossen</option>
         </select>
-        <input id="input-hours-${index}" value="${laden.hours || ''}" placeholder="Öffnungszeiten">
-        <input id="input-address-${index}" value="${laden.address || ''}" placeholder="Adresse">
-        <input id="input-phone-${index}" value="${laden.phone || ''}" placeholder="Telefon">
+        <input id="input-hours-${index}" value="${laden.öffnungszeiten || ''}" placeholder="Öffnungszeiten">
+        <input id="input-address-${index}" value="${laden.adresse || ''}" placeholder="Adresse">
+        <input id="input-phone-${index}" value="${laden.telefon || ''}" placeholder="Telefon">
         <input id="input-menu-${index}" value="${laden.menu || ''}" placeholder="Alternativen / Menü">
         <input type="file" id="file-upload-${index}">
-        <button id="btn-${index}">Ändern</button>
-      `);
+        <button id="btn-${index}">Speichern</button>` : ""}
+      `;
+      marker.bindPopup(popupContent);
 
-      // Beim Öffnen des Popups Event‑Handler registrieren
-      marker.on('popupopen', () => {
+      marker.on("popupopen", () => {
+        if(currentRole !== 'anbieter') return; // User kann nichts bearbeiten
         const btn = document.getElementById(`btn-${index}`);
-        const select = document.getElementById(`select-spieß-${index}`);
-        const inputName = document.getElementById(`input-name-${index}`);
-        const inputHours = document.getElementById(`input-hours-${index}`);
-        const inputAddress = document.getElementById(`input-address-${index}`);
-        const inputPhone = document.getElementById(`input-phone-${index}`);
-        const inputMenu = document.getElementById(`input-menu-${index}`);
-        const fileUpload = document.getElementById(`file-upload-${index}`);
+        btn.onclick = async () => {
+          const newName = document.getElementById(`input-name-${index}`).value;
+          const newSpieß = document.getElementById(`select-spieß-${index}`).value;
+          const newHours = document.getElementById(`input-hours-${index}`).value;
+          const newAddress = document.getElementById(`input-address-${index}`).value;
+          const newPhone = document.getElementById(`input-phone-${index}`).value;
+          const newMenu = document.getElementById(`input-menu-${index}`).value;
+          const fileUpload = document.getElementById(`file-upload-${index}`);
+          let fileUrl = laden.fileUrl;
 
-        btn.addEventListener('click', () => {
-          const newSpieß = select.value;
-          doenerLaeden[index].spieß = newSpieß;
-          doenerLaeden[index].name = inputName.value;
-          doenerLaeden[index].hours = inputHours.value;
-          doenerLaeden[index].address = inputAddress.value;
-          doenerLaeden[index].phone = inputPhone.value;
-          doenerLaeden[index].menu = inputMenu.value;
-
-          // Wenn eine Datei hochgeladen wurde, nur den Dateinamen speichern
-          if (fileUpload.files.length > 0) {
-            doenerLaeden[index].fileName = fileUpload.files[0].name;
+          if(fileUpload.files.length > 0){
+            const fileRef = storage.ref().child(fileUpload.files[0].name);
+            await fileRef.put(fileUpload.files[0]);
+            fileUrl = await fileRef.getDownloadURL();
           }
 
-          // Markerfarbe aktualisieren
-          marker.setStyle({ color: getColor(newSpieß) });
-
-          // Felder im Popup aktualisieren
-          document.getElementById(`name-${index}`).innerText = inputName.value;
-          document.getElementById(`spieß-${index}`).innerText = newSpieß;
-          document.getElementById(`hours-${index}`).innerText = inputHours.value;
-          document.getElementById(`address-${index}`).innerText = inputAddress.value;
-          document.getElementById(`phone-${index}`).innerText = inputPhone.value;
-          document.getElementById(`menu-${index}`).innerText = inputMenu.value;
-          document.getElementById(`file-${index}`).innerText = doenerLaeden[index].fileName || '';
-
-          // Persistieren im localStorage
-          localStorage.setItem('doenerLaeden', JSON.stringify(doenerLaeden));
-        });
+          await db.collection("markers").doc(index).update({
+            name: newName,
+            spieß: newSpieß,
+            öffnungszeiten: newHours,
+            adresse: newAddress,
+            telefon: newPhone,
+            menu: newMenu,
+            fileUrl
+          });
+          alert("Marker gespeichert!");
+          marker.closePopup();
+          loadMarkers();
+        };
       });
-    }
+    });
+  }
 
-    // Daten laden: zuerst aus localStorage, dann Fallback auf doener.json
-    const storedData = localStorage.getItem('doenerLaeden');
-    if (storedData) {
-      try {
-        doenerLaeden = JSON.parse(storedData);
-        doenerLaeden.forEach((laden, index) => createMarker(laden, index));
-      } catch (err) {
-        console.log('Fehler beim Laden der gespeicherten Daten:', err);
-      }
-    } else {
-      // Fallback: Daten aus der Datei doener.json abrufen
-      fetch('doener.json')
-        .then(response => response.json())
-        .then(data => {
-          doenerLaeden = data;
-          doenerLaeden.forEach((laden, index) => createMarker(laden, index));
-        })
-        .catch(err => console.log('Fehler beim Laden von doener.json:', err));
-    }
-
-    // Hinweis: Die Möglichkeit, durch Klick auf die Karte neue Marker hinzuzufügen,
-    // wurde bewusst entfernt, um unkontrolliertes Hinzufügen zu verhindern.
   </script>
 </body>
 </html>
