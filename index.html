@@ -1,9 +1,8 @@
-```html
 <!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Döner Map Debug</title>
+  <title>Döner Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     body { margin: 0; font-family: sans-serif; }
@@ -37,9 +36,8 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, doc, getDocs, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Deine Firebase-Konfiguration
     const firebaseConfig = {
       apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
       authDomain: "activespiess-433b5.firebaseapp.com",
@@ -50,7 +48,6 @@
       measurementId: "G-SXHQE7RB6M"
     };
 
-    // Init
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -58,25 +55,21 @@
     let currentUid = null;
     let currentRole = "User";
 
-    // Map Setup
     const map = L.map('map').setView([52.5200, 13.4050], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
     async function loadShops() {
-      console.log("🔎 Lade Shops...");
+      console.log("Lade Shops...");
       try {
         const querySnapshot = await getDocs(collection(db, "shops"));
-        console.log("📦 Anzahl Shops:", querySnapshot.size);
+        console.log("Anzahl Shops:", querySnapshot.size);
 
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          console.log("➡️ Shop:", docSnap.id, data);
-
           const lat = parseFloat(data.coords?.[0]);
           const lng = parseFloat(data.coords?.[1]);
-
           if (!isNaN(lat) && !isNaN(lng)) {
             const popupContent = `
               <b>${data.name || "Unbekannt"}</b><br>
@@ -86,60 +79,44 @@
               Spieß aktiv: ${data.spiess || "-"}
             `;
             L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
-          } else {
-            console.warn("⚠️ Ungültige Koordinaten:", docSnap.id, data.coords);
           }
         });
       } catch (err) {
-        console.error("❌ Fehler beim Laden der Shops:", err);
+        console.error("Fehler beim Laden der Shops:", err);
       }
     }
 
-    // Auth Handling
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUid = user.uid;
-        console.log("✅ Eingeloggt:", currentUid);
-
         const userDoc = await getDoc(doc(db, "users", currentUid));
-        if (userDoc.exists()) {
-          currentRole = userDoc.data().role || "User";
-        } else {
-          currentRole = "User";
-        }
+        currentRole = userDoc.exists() ? (userDoc.data().role || "User") : "User";
         document.getElementById("roleInfo").innerText = "Rolle: " + currentRole;
-
         document.getElementById("loginBtn").style.display = "none";
         document.getElementById("logoutBtn").style.display = "inline";
       } else {
-        console.log("🚪 Nicht eingeloggt");
         currentUid = null;
         currentRole = "User";
         document.getElementById("roleInfo").innerText = "Rolle: Gast";
-
         document.getElementById("loginBtn").style.display = "inline";
         document.getElementById("logoutBtn").style.display = "none";
       }
-      // immer Shops laden
       loadShops();
     });
 
-    // Login Button
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       try {
         await signInWithEmailAndPassword(auth, email, password);
       } catch (err) {
-        alert("❌ Fehler beim Login: " + err.message);
+        alert("Fehler beim Login: " + err.message);
       }
     });
 
-    // Logout Button
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await signOut(auth);
     });
   </script>
 </body>
 </html>
-```
