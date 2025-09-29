@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Döner Map Berlin – Anbieter bearbeiten</title>
+<title>Döner Map Berlin – Anbieter bearbeiten stabil</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <style>
@@ -40,8 +40,18 @@ html,body{height:100%;margin:0;}
 
 <script>
 (function(){
-  const showError = msg=>{const el=document.getElementById('errorOverlay'); el.style.display='block'; el.innerText='Fehler: '+msg; console.error(msg);}
-  const esc = s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const showError = msg=>{
+    const el=document.getElementById('errorOverlay'); 
+    el.style.display='block'; 
+    el.innerText='Fehler: '+msg; 
+    console.error(msg);
+  }
+  const esc = s=>String(s==null?'':s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 
   // Firebase Setup
   const firebaseConfig = {
@@ -65,16 +75,21 @@ html,body{height:100%;margin:0;}
   const map = L.map('map').setView([52.52,13.405],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
 
-  // Funktion zum Laden der Marker (nach Login!)
+  // Marker laden
   function loadMarkers(){
-    // Alte Marker löschen
     markers.forEach(m=>map.removeLayer(m));
     markers = [];
 
-    db.collection("doenerlaeden").get().then((querySnapshot)=>{
+    db.collection("doenerlaeden").get().then(querySnapshot=>{
       querySnapshot.forEach(doc=>{
         const data = doc.data();
-        const coords = Array.isArray(data.coords) && data.coords.length===2 ? data.coords : [52.52,13.405];
+
+        // coords in Numbers umwandeln
+        let coords = [52.52,13.405];
+        if(Array.isArray(data.coords) && data.coords.length===2){
+          coords = [Number(data.coords[0]), Number(data.coords[1])];
+        }
+
         const idx = markers.length;
         const marker = L.marker(coords).addTo(map);
 
@@ -93,6 +108,7 @@ html,body{height:100%;margin:0;}
                  '<label>Adresse</label><input id="addr-'+idx+'" '+readonly+' value="'+esc(data.addr||'')+'"/>'+
                  '<label>Telefon</label><input id="tel-'+idx+'" '+readonly+' value="'+esc(data.tel||'')+'"/>'+
                  (isOwner?'<button id="save-'+idx+'">Speichern</button>':'')+
+                 '<p style="font-size:12px;color:#555;">OwnerUID: '+esc(data.ownerUid)+'</p>'+
                  '</div>';
         }
 
@@ -141,6 +157,7 @@ html,body{height:100%;margin:0;}
           role: 'anbieter'
         }).then(()=>{
           document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
+          console.log('Registriert:', currentUid);
           loadMarkers();
           alert('Registrierung erfolgreich! Du bist Anbieter.');
         }).catch(err=>showError(err.message));
@@ -157,10 +174,10 @@ html,body{height:100%;margin:0;}
         currentUid = cred.user.uid;
         db.collection('users').doc(currentUid).get().then(doc=>{
           if(doc.exists){
-            currentRole = doc.data().role;
+            currentRole = doc.data().role.toLowerCase();
             document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
             console.log('currentUid:', currentUid, 'currentRole:', currentRole);
-            loadMarkers(); // Marker erst nach Login laden!
+            loadMarkers();
           }else{
             showError('User-Daten nicht gefunden');
           }
