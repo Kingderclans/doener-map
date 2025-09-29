@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Döner Map</title>
+  <title>Döner Map Debug</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     body { margin: 0; font-family: sans-serif; }
@@ -28,19 +28,18 @@
       <button id="loginBtn">Login</button>
       <button id="logoutBtn" style="display:none;">Logout</button>
     </div>
-    <div id="roleInfo"></div>
+    <div id="roleInfo">Rolle: Gast</div>
   </div>
 
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script type="module">
-    // Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, doc, getDocs, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Config
+    // Deine Firebase-Konfiguration
     const firebaseConfig = {
       apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
       authDomain: "activespiess-433b5.firebaseapp.com",
@@ -57,7 +56,7 @@
     const db = getFirestore(app);
 
     let currentUid = null;
-    let currentRole = "User"; // Standardrolle
+    let currentRole = "User";
 
     // Map Setup
     const map = L.map('map').setView([52.5200, 13.4050], 12);
@@ -65,67 +64,35 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Shops laden
     async function loadShops() {
-      console.log("🔎 Lade Shops aus Firestore...");
-      const querySnapshot = await getDocs(collection(db, "shops"));
-      console.log("📦 Shops gefunden:", querySnapshot.size);
+      console.log("🔎 Lade Shops...");
+      try {
+        const querySnapshot = await getDocs(collection(db, "shops"));
+        console.log("📦 Anzahl Shops:", querySnapshot.size);
 
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        console.log("➡️ Shop:", docSnap.id, data);
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          console.log("➡️ Shop:", docSnap.id, data);
 
-        const lat = parseFloat(data.coords?.[0]);
-        const lng = parseFloat(data.coords?.[1]);
+          const lat = parseFloat(data.coords?.[0]);
+          const lng = parseFloat(data.coords?.[1]);
 
-        if (!isNaN(lat) && !isNaN(lng)) {
-          const popupContent = document.createElement("div");
-          popupContent.innerHTML = `
-            <b>${data.name || "Unbekannt"}</b><br>
-            ${data.addr || ""}<br>
-            Tel: ${data.tel || "-"}<br>
-            Öffnungszeiten: ${data.oeffnungszeiten || "-"}<br>
-            Spieß aktiv: ${data.spiess || "-"}<br>
-            ${data.menuUrl ? `<a href="${data.menuUrl}" target="_blank">Menü ansehen</a>` : ""}
-          `;
-
-          // Wenn Anbieter = Owner → Bearbeitungsformular einfügen
-          if (currentUid && currentUid === data.ownerUid) {
-            const editBox = document.createElement("div");
-            editBox.innerHTML = `
-              <h4>Bearbeiten</h4>
-              <label>Öffnungszeiten:</label><br>
-              <input id="edit-oeff-${docSnap.id}" value="${data.oeffnungszeiten || ""}"><br>
-              <label>Spieß:</label><br>
-              <select id="edit-spiess-${docSnap.id}">
-                <option value="ja" ${data.spiess==="ja"?"selected":""}>Ja</option>
-                <option value="nein" ${data.spiess==="nein"?"selected":""}>Nein</option>
-              </select><br>
-              <button id="save-${docSnap.id}">Speichern</button>
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const popupContent = `
+              <b>${data.name || "Unbekannt"}</b><br>
+              ${data.addr || ""}<br>
+              Tel: ${data.tel || "-"}<br>
+              Öffnungszeiten: ${data.oeffnungszeiten || "-"}<br>
+              Spieß aktiv: ${data.spiess || "-"}
             `;
-            popupContent.appendChild(editBox);
-
-            // Listener anhängen nach dem Öffnen
-            setTimeout(() => {
-              document.getElementById(`save-${docSnap.id}`).addEventListener("click", async () => {
-                const newOeff = document.getElementById(`edit-oeff-${docSnap.id}`).value;
-                const newSpiess = document.getElementById(`edit-spiess-${docSnap.id}`).value;
-
-                await updateDoc(doc(db, "shops", docSnap.id), {
-                  oeffnungszeiten: newOeff,
-                  spiess: newSpiess
-                });
-
-                alert("✅ Daten gespeichert!");
-              });
-            }, 500);
+            L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
+          } else {
+            console.warn("⚠️ Ungültige Koordinaten:", docSnap.id, data.coords);
           }
-
-          L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
-        } else {
-          console.warn("⚠️ Ungültige Koordinaten:", docSnap.id, data.coords);
-        }
-      });
+        });
+      } catch (err) {
+        console.error("❌ Fehler beim Laden der Shops:", err);
+      }
     }
 
     // Auth Handling
@@ -134,7 +101,6 @@
         currentUid = user.uid;
         console.log("✅ Eingeloggt:", currentUid);
 
-        // Rolle laden
         const userDoc = await getDoc(doc(db, "users", currentUid));
         if (userDoc.exists()) {
           currentRole = userDoc.data().role || "User";
@@ -145,8 +111,6 @@
 
         document.getElementById("loginBtn").style.display = "none";
         document.getElementById("logoutBtn").style.display = "inline";
-
-        loadShops();
       } else {
         console.log("🚪 Nicht eingeloggt");
         currentUid = null;
@@ -155,9 +119,9 @@
 
         document.getElementById("loginBtn").style.display = "inline";
         document.getElementById("logoutBtn").style.display = "none";
-
-        loadShops();
       }
+      // immer Shops laden
+      loadShops();
     });
 
     // Login Button
