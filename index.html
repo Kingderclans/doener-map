@@ -67,6 +67,8 @@ html,body{height:100%;margin:0;}
 
   function loadMarkers(){
     db.collection("doenerlaeden").get().then((querySnapshot)=>{
+      markers.forEach(m=>map.removeLayer(m));
+      markers.length = 0;
       querySnapshot.forEach(doc=>{
         const data = doc.data();
         let coords = data.coords;
@@ -135,8 +137,11 @@ html,body{height:100%;margin:0;}
         db.collection('users').doc(currentUid).set({
           email: email,
           role: 'anbieter'
-        }).then(()=>alert('Registrierung erfolgreich! Du bist Anbieter.'))
-          .catch(err=>showError(err.message));
+        }).then(()=>{
+          document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
+          loadMarkers();
+          alert('Registrierung erfolgreich! Du bist Anbieter.');
+        }).catch(err=>showError(err.message));
       })
       .catch(err=>showError(err.message));
   };
