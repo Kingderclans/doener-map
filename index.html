@@ -1,141 +1,166 @@
-```html
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <title>Döner Map Berlin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-  />
-  <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-    .popup-content {
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-    .popup-content h3 {
-      margin: 0 0 5px 0;
-      font-size: 16px;
-    }
-    .popup-content label {
-      display: block;
-      margin-top: 4px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Döner Map Berlin mit Anbieter-Zugriff</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<style>
+html,body{height:100%;margin:0;}
+#map{height:70vh;width:100%;}
+.popup-content{font-family:sans-serif;font-size:14px;min-width:220px;}
+.popup-content label{display:block;margin-top:6px;font-weight:600;}
+.popup-content input{width:100%;padding:4px;margin-top:4px;box-sizing:border-box;}
+.popup-content button{margin-top:8px;padding:6px 8px;cursor:pointer;}
+#errorOverlay{position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#fff7f7;border:1px solid #d33;color:#600;padding:10px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+#loginDiv{padding:10px;}
+#loginDiv input{margin:4px 0; padding:6px; width:200px;}
+#loginDiv button{margin:4px 2px; padding:6px 10px; cursor:pointer;}
+#roleInfo{margin-left:10px;}
+</style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="errorOverlay" role="alert"></div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<div id="loginDiv">
+  <h3>Login / Registrierung</h3>
+  <input type="email" id="email" placeholder="Email"><br>
+  <input type="password" id="password" placeholder="Passwort"><br>
+  <button id="registerBtn">Registrieren</button>
+  <button id="loginBtn">Login</button>
+  <span id="roleInfo"></span>
+</div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
+<div id="map"></div>
 
-  <script>
-    // 👉 Hier deine Firebase Config einfügen (aus Firebase Console)
-    const firebaseConfig = {
-      apiKey: "DEIN_API_KEY",
-      authDomain: "DEIN_PROJEKT.firebaseapp.com",
-      projectId: "DEIN_PROJEKT_ID",
-      storageBucket: "DEIN_PROJEKT.appspot.com",
-      messagingSenderId: "DEINE_SENDER_ID",
-      appId: "DEINE_APP_ID"
-    };
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-    // Firebase initialisieren
-    const app = firebase.initializeApp(firebaseConfig);
-    const storage = firebase.storage();
+<script>
+(function(){
+  const showError = msg=>{const el=document.getElementById('errorOverlay'); el.style.display='block'; el.innerText='Fehler: '+msg; console.error(msg);}
+  const esc = s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-    // Map erstellen
-    const map = L.map("map").setView([52.52, 13.405], 12);
+  // Firebase Setup
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
+    authDomain: "activespiess-433b5.firebaseapp.com",
+    projectId: "activespiess-433b5",
+    storageBucket: "activespiess-433b5.firebasestorage.app",
+    messagingSenderId: "927921088097",
+    appId: "1:927921088097:web:05e6691473e3ded984ac20",
+    measurementId: "G-SXHQE7RB6M"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
 
-    // OpenStreetMap Tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap Contributors"
-    }).addTo(map);
+  let currentRole = null;
+  let currentUid = null;
 
-    // Beispiel-Daten für Dönerläden
-    const doenerLaeden = [
-      {
-        name: "Mustafa's Gemüse Kebap",
-        coords: [52.499219, 13.403799],
-        spiess: "Ja",
-        oeffnungszeiten: "10:00 - 22:00"
-      },
-      {
-        name: "Rüyam Gemüse Kebab",
-        coords: [52.542078, 13.412275],
-        spiess: "Nein",
-        oeffnungszeiten: "11:00 - 23:00"
-      }
-    ];
+  // Map Setup
+  const map = L.map('map').setView([52.52,13.405],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
+  const markers = [];
 
-    // Marker mit Popups hinzufügen
-    doenerLaeden.forEach((laden, index) => {
-      const marker = L.circleMarker(laden.coords, {
-        radius: 8,
-        fillColor: "red",
-        color: "darkred",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(map);
+  function loadMarkers(){
+    db.collection("doenerlaeden").get().then((querySnapshot)=>{
+      querySnapshot.forEach(doc=>{
+        const data = doc.data();
+        let coords = data.coords;
+        if(!Array.isArray(coords)||coords.length!==2){coords=[52.52,13.405]; console.warn('coords falsch für', data.name);}
+        const idx = markers.length;
+        const marker = L.marker(coords).addTo(map);
 
-      const popupContent = `
-        <div class="popup-content">
-          <h3>${laden.name}</h3>
-          <p><b>Spieß:</b> ${laden.spiess}</p>
-          <p><b>Öffnungszeiten:</b> ${laden.oeffnungszeiten}</p>
-          <label>Menü hochladen:</label>
-          <input type="file" id="fileInput-${index}" />
-          <button onclick="uploadFile(${index}, '${laden.name}')">Upload</button>
-          <div id="uploadStatus-${index}"></div>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-    });
-
-    // Datei hochladen nach Firebase Storage
-    function uploadFile(index, ladenName) {
-      const fileInput = document.getElementById(`fileInput-${index}`);
-      const statusDiv = document.getElementById(`uploadStatus-${index}`);
-
-      if (fileInput.files.length === 0) {
-        statusDiv.innerHTML = "<p style='color:red;'>Bitte eine Datei auswählen!</p>";
-        return;
-      }
-
-      const file = fileInput.files[0];
-      const storageRef = storage.ref(`${ladenName}/${file.name}`);
-      const uploadTask = storageRef.put(file);
-
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          statusDiv.innerHTML = `<p>Upload: ${progress.toFixed(0)}%</p>`;
-        },
-        (error) => {
-          statusDiv.innerHTML = `<p style='color:red;'>Fehler: ${error.message}</p>`;
-        },
-        () => {
-          uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-            statusDiv.innerHTML = `<p style='color:green;'>Upload fertig! <a href="${downloadURL}" target="_blank">Datei ansehen</a></p>`;
-          });
+        function popupHtml(){
+          const isOwner = (currentRole==='anbieter' && data.ownerUid===currentUid);
+          const readonly = isOwner?'':'readonly';
+          return '<div class="popup-content">'+
+                 '<h3>'+esc(data.name)+'</h3>'+
+                 '<p><b>Spieß:</b> '+esc(data.spiess)+'</p>'+
+                 '<p><b>Öffnungszeiten:</b> '+esc(data.oeffnungszeiten)+'</p>'+
+                 '<p><b>Adresse:</b> '+esc(data.addr||'')+'</p>'+
+                 '<p><b>Telefon:</b> '+esc(data.tel||'')+'</p>'+
+                 '<hr>'+
+                 '<label>Spieß</label><input id="spiess-'+idx+'" '+readonly+' value="'+esc(data.spiess)+'"/>'+
+                 '<label>Öffnungszeiten</label><input id="oeff-'+idx+'" '+readonly+' value="'+esc(data.oeffnungszeiten)+'"/>'+
+                 '<label>Adresse</label><input id="addr-'+idx+'" '+readonly+' value="'+esc(data.addr||'')+'"/>'+
+                 '<label>Telefon</label><input id="tel-'+idx+'" '+readonly+' value="'+esc(data.tel||'')+'"/>'+
+                 (isOwner?'<button id="save-'+idx+'">Speichern</button>':'')+
+                 '</div>';
         }
-      );
-    }
-  </script>
+
+        marker.bindPopup(popupHtml());
+
+        marker.on('popupopen', ()=>{
+          const isOwner = (currentRole==='anbieter' && data.ownerUid===currentUid);
+          if(isOwner){
+            setTimeout(()=>{
+              const btn=document.getElementById('save-'+idx);
+              if(!btn) return;
+              btn.onclick=null;
+              btn.addEventListener('click', ()=>{
+                const updated = {
+                  spiess: document.getElementById('spiess-'+idx).value,
+                  oeffnungszeiten: document.getElementById('oeff-'+idx).value,
+                  addr: document.getElementById('addr-'+idx).value,
+                  tel: document.getElementById('tel-'+idx).value
+                };
+                db.collection("doenerlaeden").doc(doc.id).update(updated)
+                  .then(()=>{
+                    Object.assign(data, updated);
+                    marker.setPopupContent(popupHtml());
+                    marker.openPopup();
+                  }).catch(err=>showError(err.message||err));
+              },{once:true});
+            },50);
+          }
+        });
+
+        markers.push(marker);
+      });
+    }).catch(err=>showError(err.message||err));
+  }
+
+  // Registrierung
+  document.getElementById('registerBtn').onclick = ()=>{
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.createUserWithEmailAndPassword(email,password)
+      .then(cred=>{
+        currentUid = cred.user.uid;
+        currentRole = 'anbieter';
+        db.collection('users').doc(currentUid).set({
+          email: email,
+          role: 'anbieter'
+        }).then(()=>alert('Registrierung erfolgreich! Du bist Anbieter.'))
+          .catch(err=>showError(err.message));
+      })
+      .catch(err=>showError(err.message));
+  };
+
+  // Login
+  document.getElementById('loginBtn').onclick = ()=>{
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.signInWithEmailAndPassword(email,password)
+      .then(cred=>{
+        currentUid = cred.user.uid;
+        db.collection('users').doc(currentUid).get().then(doc=>{
+          if(doc.exists){
+            currentRole = doc.data().role;
+            document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
+            loadMarkers();
+          }else{
+            showError('User-Daten nicht gefunden');
+          }
+        });
+      })
+      .catch(err=>showError(err.message));
+  };
+})();
+</script>
 </body>
 </html>
-```
