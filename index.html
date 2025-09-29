@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Döner Map Berlin</title>
+  <title>Testkarte</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -16,18 +16,6 @@
       height: 100vh;
       width: 100%;
     }
-    .popup-content {
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-    .popup-content h3 {
-      margin: 0 0 5px 0;
-      font-size: 16px;
-    }
-    .popup-content label {
-      display: block;
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
@@ -35,55 +23,14 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
   <script>
-    // Map erstellen
+    // Karte starten
     const map = L.map("map").setView([52.52, 13.405], 12);
 
-    // OpenStreetMap Tiles
+    // OpenStreetMap Tiles laden
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap Contributors"
+      attribution: "© OpenStreetMap-Mitwirkende"
     }).addTo(map);
-
-    // Beispiel-Daten für Dönerläden
-    const doenerLaeden = [
-      {
-        name: "Mustafa's Gemüse Kebap",
-        coords: [52.499219, 13.403799],
-        spiess: "Ja",
-        oeffnungszeiten: "10:00 - 22:00"
-      },
-      {
-        name: "Rüyam Gemüse Kebab",
-        coords: [52.542078, 13.412275],
-        spiess: "Nein",
-        oeffnungszeiten: "11:00 - 23:00"
-      }
-    ];
-
-    // Marker mit Popups hinzufügen
-    doenerLaeden.forEach((laden, index) => {
-      const marker = L.circleMarker(laden.coords, {
-        radius: 8,
-        fillColor: "red",
-        color: "darkred",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(map);
-
-      const popupContent = `
-        <div class="popup-content">
-          <h3>${laden.name}</h3>
-          <p><b>Spieß:</b> ${laden.spiess}</p>
-          <p><b>Öffnungszeiten:</b> ${laden.oeffnungszeiten}</p>
-          <label>Menü hochladen (noch ohne Speicherung):</label>
-          <input type="file" id="fileInput-${index}" />
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-    });
   </script>
 </body>
 </html>
