@@ -1,121 +1,131 @@
-```html
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <title>Döner Map Berlin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <meta charset="utf-8" />
+  <title>Döner Map — stabil</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-    .popup-content {
-      font-family: sans-serif;
-      font-size: 14px;
-      min-width: 220px;
-    }
-    .popup-content h3 {
-      margin: 0 0 5px 0;
-      font-size: 16px;
-    }
-    .popup-content label {
-      display: block;
-      margin-top: 5px;
-    }
-    .popup-content input {
-      width: 95%;
-      padding: 3px;
-      margin-top: 2px;
-    }
-    .popup-content button {
-      margin-top: 8px;
-      padding: 5px 10px;
-      cursor: pointer;
+    html,body { height:100%; margin:0; }
+    #map { height:100vh; width:100%; }
+    .popup-content { font-family: sans-serif; font-size:14px; min-width:220px; }
+    .popup-content label { display:block; margin-top:6px; font-weight:600; }
+    .popup-content input { width:100%; padding:4px; margin-top:4px; box-sizing:border-box; }
+    .popup-content button { margin-top:8px; padding:6px 8px; cursor:pointer; }
+    #errorOverlay {
+      position:fixed; left:8px; right:8px; top:8px; z-index:99999;
+      background:#fff7f7; border:1px solid #d33; color:#600; padding:10px; display:none;
+      box-shadow:0 4px 12px rgba(0,0,0,0.15);
     }
   </style>
 </head>
 <body>
+  <div id="errorOverlay" role="alert"></div>
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Karte starten
-    const map = L.map("map").setView([52.52, 13.405], 12);
+  (function(){
+    // kleine Hilfsfunktion: sichere Texte einfügen
+    function esc(s){ return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-    // OpenStreetMap Tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap-Mitwirkende"
-    }).addTo(map);
+    function showError(msg){
+      const el = document.getElementById('errorOverlay');
+      el.style.display = 'block';
+      el.innerText = 'Fehler: ' + msg + '\nÖffne die Browser-Konsole (F12) für Details.';
+      console.error(msg);
+    }
 
-    // Echte Dönerläden in Berlin
-    const doenerLaeden = [
-      {
-        name: "Mustafa's Gemüse Kebap",
-        coords: [52.499219, 13.403799],
-        spiess: "Ja",
-        oeffnungszeiten: "10:00 - 22:00"
-      },
-      {
-        name: "Rüyam Gemüse Kebab",
-        coords: [52.542078, 13.412275],
-        spiess: "Nein",
-        oeffnungszeiten: "11:00 - 23:00"
-      },
-      {
-        name: "Döner Turm",
-        coords: [52.525847, 13.34186],
-        spiess: "Ja",
-        oeffnungszeiten: "09:00 - 01:00"
-      },
-      {
-        name: "Imren Grill",
-        coords: [52.494813, 13.415313],
-        spiess: "Ja",
-        oeffnungszeiten: "10:00 - 00:00"
-      },
-      {
-        name: "K’Ups Gemüse Kebap",
-        coords: [52.540157, 13.412636],
-        spiess: "Ja",
-        oeffnungszeiten: "11:00 - 23:30"
+    try {
+      // Karte initialisieren
+      const map = L.map('map').setView([52.52, 13.405], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap-Mitwirkende'
+      }).addTo(map);
+
+      // echte Dönerläden (Koordinaten aus öffentlichen Quellen — überprüfbar)
+      const doenerLaeden = [
+        { name: "Mustafa's Gemüse Kebap", coords:[52.499219,13.403799], spiess:"Ja", oeff:"10:00 - 22:00", addr:"Mehringdamm 32", tel:"030xxxx" },
+        { name: "Rüyam Gemüse Kebab", coords:[52.542078,13.412275], spiess:"Nein", oeff:"11:00 - 23:00", addr:"Reinickendorfer Str. 113", tel:"030xxxx" },
+        { name: "Döner Turm", coords:[52.525847,13.341860], spiess:"Ja", oeff:"09:00 - 01:00", addr:"Turmstr. 72", tel:"030xxxx" },
+        { name: "Imren Grill", coords:[52.494813,13.415313], spiess:"Ja", oeff:"10:00 - 00:00", addr:"Boppstr. 10", tel:"030xxxx" },
+        { name: "K’Ups Gemüse Kebap", coords:[52.540157,13.412636], spiess:"Ja", oeff:"11:00 - 23:30", addr:"Kastanienallee 102", tel:"030xxxx" }
+      ];
+
+      // Marker-Array parallel zur Datenstruktur
+      const markers = [];
+
+      // Baut das HTML für ein Popup (mit Escaping)
+      function popupHtml(item, idx){
+        return (
+          '<div class="popup-content">' +
+            '<h3>' + esc(item.name) + '</h3>' +
+            '<p><strong>Spieß:</strong> ' + esc(item.spiess) + '</p>' +
+            '<p><strong>Öffnungszeiten:</strong> ' + esc(item.oeff) + '</p>' +
+            '<p><strong>Adresse:</strong> ' + esc(item.addr) + '</p>' +
+            '<p><strong>Telefon:</strong> ' + esc(item.tel) + '</p>' +
+            '<hr>' +
+            '<label for="spiess-' + idx + '">Spieß</label>' +
+            '<input id="spiess-' + idx + '" value="' + esc(item.spiess) + '" />' +
+            '<label for="oeff-' + idx + '">Öffnungszeiten</label>' +
+            '<input id="oeff-' + idx + '" value="' + esc(item.oeff) + '" />' +
+            '<label for="addr-' + idx + '">Adresse</label>' +
+            '<input id="addr-' + idx + '" value="' + esc(item.addr) + '" />' +
+            '<label for="tel-' + idx + '">Telefon</label>' +
+            '<input id="tel-' + idx + '" value="' + esc(item.tel) + '" />' +
+            '<button id="save-' + idx + '" data-idx="' + idx + '">Speichern</button>' +
+          '</div>'
+        );
       }
-    ];
 
-    // Marker + Popup mit Edit-Funktion
-    const markers = [];
+      // Erstelle Marker und Popup, hänge listener an popupopen
+      doenerLaeden.forEach((laden, index) => {
+        const m = L.marker(laden.coords).addTo(map);
+        m.bindPopup(popupHtml(laden, index));
+        markers.push(m);
 
-    const createPopupContent = (laden, index) => `
-      <div class="popup-content">
-        <h3>${laden.name}</h3>
-        <p><b>Spieß:</b> ${laden.spiess}</p>
-        <p><b>Öffnungszeiten:</b> ${laden.oeffnungszeiten}</p>
+        m.on('popupopen', function(){
+          // kleine Verzögerung damit DOM im Popup existiert
+          setTimeout(() => {
+            const btn = document.getElementById('save-' + index);
+            if(!btn) return;
+            // Entferne vorherige Listener (sicher)
+            btn.onclick = null;
+            btn.addEventListener('click', function(){
+              try {
+                const newSpiess = document.getElementById('spiess-' + index).value;
+                const newOeff = document.getElementById('oeff-' + index).value;
+                const newAddr = document.getElementById('addr-' + index).value;
+                const newTel = document.getElementById('tel-' + index).value;
 
-        <hr>
-        <label for="spiess-${index}">Spieß:</label>
-        <input id="spiess-${index}" type="text" value="${laden.spiess}"/>
+                // Daten aktualisieren (lokal)
+                doenerLaeden[index].spiess = newSpiess;
+                doenerLaeden[index].oeff = newOeff;
+                doenerLaeden[index].addr = newAddr;
+                doenerLaeden[index].tel = newTel;
 
-        <label for="oeff-${index}">Öffnungszeiten:</label>
-        <input id="oeff-${index}" type="text" value="${laden.oeffnungszeiten}"/>
+                // Popup-HTML neu setzen
+                markers[index].setPopupContent(popupHtml(doenerLaeden[index], index));
+                // Popup wieder öffnen, damit Nutzer die Änderung sofort sieht
+                markers[index].openPopup();
+              } catch(errInner){
+                console.error('Fehler beim Speichern im Popup:', errInner);
+                showError('Fehler beim Speichern: ' + (errInner && errInner.message ? errInner.message : errInner));
+              }
+            }, { once: true }); // once verhindert doppelte Listener
+          }, 50);
+        });
+      });
 
-        <button onclick="saveChanges(${index})">Speichern</button>
-      </div>
-    `;
-
-    doenerLaeden.forEach((laden, index) => {
-      const marker = L.marker(laden.coords).addTo(map);
-      marker.bindPopup(createPopupContent(laden, index));
-      markers.push(marker);
-    });
-
-    // Änderungen speichern
-    window.saveChanges = (index) => {
-      const newSpiess = document.getElementById(`spiess-${index}`).value;
-      const newOeff = document.getElementById(`oeff-${index}`).value;
-
-      doenerLaeden[index].spiess = newS
-```
+      // Alles OK - kleine console-info
+      console.log('Karte + Marker initialisiert, Anzahl Marker:', doenerLaeden.length);
+    } catch (e) {
+      // Falls etwas schief geht, zeige Fehlermeldung statt weißem Bildschirm
+      showError(e && e.message ? e.message : String(e));
+    }
+  })();
+  </script>
+</body>
+</html>
