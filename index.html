@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Döner Map Berlin mit Anbieter-Zugriff</title>
+<title>Döner Map Berlin – Anbieter bearbeiten</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <style>
@@ -59,26 +59,28 @@ html,body{height:100%;margin:0;}
 
   let currentRole = null;
   let currentUid = null;
+  let markers = [];
 
   // Map Setup
   const map = L.map('map').setView([52.52,13.405],12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
-  const markers = [];
 
+  // Funktion zum Laden der Marker (nach Login!)
   function loadMarkers(){
+    // Alte Marker löschen
+    markers.forEach(m=>map.removeLayer(m));
+    markers = [];
+
     db.collection("doenerlaeden").get().then((querySnapshot)=>{
-      markers.forEach(m=>map.removeLayer(m));
-      markers.length = 0;
       querySnapshot.forEach(doc=>{
         const data = doc.data();
-        let coords = data.coords;
-        if(!Array.isArray(coords)||coords.length!==2){coords=[52.52,13.405]; console.warn('coords falsch für', data.name);}
+        const coords = Array.isArray(data.coords) && data.coords.length===2 ? data.coords : [52.52,13.405];
         const idx = markers.length;
         const marker = L.marker(coords).addTo(map);
 
         function popupHtml(){
           const isOwner = (currentRole==='anbieter' && data.ownerUid===currentUid);
-          const readonly = isOwner?'':'readonly';
+          const readonly = isOwner ? '' : 'readonly';
           return '<div class="popup-content">'+
                  '<h3>'+esc(data.name)+'</h3>'+
                  '<p><b>Spieß:</b> '+esc(data.spiess)+'</p>'+
@@ -157,7 +159,8 @@ html,body{height:100%;margin:0;}
           if(doc.exists){
             currentRole = doc.data().role;
             document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
-            loadMarkers();
+            console.log('currentUid:', currentUid, 'currentRole:', currentRole);
+            loadMarkers(); // Marker erst nach Login laden!
           }else{
             showError('User-Daten nicht gefunden');
           }
