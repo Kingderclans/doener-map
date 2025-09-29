@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <title>Döner Map Berlin + Firebase</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>
-    html,body{height:100%;margin:0;}
-    #map{height:100vh;width:100%;}
-    .popup-content{font-family:sans-serif;font-size:14px;min-width:220px;}
-    .popup-content label{display:block;margin-top:6px;font-weight:600;}
-    .popup-content input{width:100%;padding:4px;margin-top:4px;box-sizing:border-box;}
-    .popup-content button{margin-top:8px;padding:6px 8px;cursor:pointer;}
-    #errorOverlay{position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#fff7f7;border:1px solid #d33;color:#600;padding:10px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
-  </style>
+<meta charset="UTF-8" />
+<title>Döner Map Berlin + Firestore robust</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+html,body{height:100%;margin:0;}
+#map{height:100vh;width:100%;}
+.popup-content{font-family:sans-serif;font-size:14px;min-width:220px;}
+.popup-content label{display:block;margin-top:6px;font-weight:600;}
+.popup-content input{width:100%;padding:4px;margin-top:4px;box-sizing:border-box;}
+.popup-content button{margin-top:8px;padding:6px 8px;cursor:pointer;}
+#errorOverlay{position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#fff7f7;border:1px solid #d33;color:#600;padding:10px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+</style>
 </head>
 <body>
 <div id="errorOverlay" role="alert"></div>
@@ -32,11 +32,9 @@
   function showError(msg){ const el=document.getElementById('errorOverlay'); el.style.display='block'; el.innerText='Fehler: '+msg; console.error(msg); }
 
   try{
-    // Karte starten
     const map = L.map('map').setView([52.52,13.405],12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
 
-    // Firebase initialisieren
     const firebaseConfig = {
       apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
       authDomain: "activespiess-433b5.firebaseapp.com",
@@ -51,13 +49,22 @@
 
     const markers = [];
 
-    // Firestore: alle Dönerläden auslesen
     db.collection("doenerlaeden").get().then((querySnapshot)=>{
+      if(querySnapshot.empty){
+        showError('Keine Dönerläden in Firestore gefunden.');
+        return;
+      }
       querySnapshot.forEach((doc)=>{
         const data = doc.data();
-        const coords = data.coords || [52.52,13.405];
-        const marker = L.marker(coords).addTo(map);
+        // robust coords prüfen
+        let coords = data.coords;
+        if(!Array.isArray(coords) || coords.length !== 2){
+          coords = [52.52,13.405]; // Standard Berlin
+          console.warn('coords fehlt oder falsch formatiert, Standard verwendet für', data.name);
+        }
+
         const idx = markers.length;
+        const marker = L.marker(coords).addTo(map);
 
         function popupHtml(){
           return '<div class="popup-content">'+
@@ -91,9 +98,11 @@
             },{once:true});
           },50);
         });
+
         markers.push(marker);
       });
     }).catch(err=>showError(err.message||err));
+
   }catch(e){showError(e.message||e);}
 })();
 </script>
