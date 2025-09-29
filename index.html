@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Testkarte</title>
+  <title>Döner Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -16,6 +16,14 @@
       height: 100vh;
       width: 100%;
     }
+    .popup-content {
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+    .popup-content h3 {
+      margin: 0 0 5px 0;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
@@ -27,10 +35,41 @@
     // Karte starten
     const map = L.map("map").setView([52.52, 13.405], 12);
 
-    // OpenStreetMap Tiles laden
+    // OpenStreetMap Tiles
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap-Mitwirkende"
     }).addTo(map);
+
+    // Beispiel-Dönerläden
+    const doenerLaeden = [
+      {
+        name: "Mustafa's Gemüse Kebap",
+        coords: [52.499219, 13.403799],
+        spiess: "Ja",
+        oeffnungszeiten: "10:00 - 22:00"
+      },
+      {
+        name: "Rüyam Gemüse Kebab",
+        coords: [52.542078, 13.412275],
+        spiess: "Nein",
+        oeffnungszeiten: "11:00 - 23:00"
+      }
+    ];
+
+    // Marker + Popup hinzufügen
+    doenerLaeden.forEach(laden => {
+      const marker = L.marker(laden.coords).addTo(map);
+
+      const popupContent = `
+        <div class="popup-content">
+          <h3>${laden.name}</h3>
+          <p><b>Spieß:</b> ${laden.spiess}</p>
+          <p><b>Öffnungszeiten:</b> ${laden.oeffnungszeiten}</p>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+    });
   </script>
 </body>
 </html>
