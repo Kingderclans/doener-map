@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Döner Map Berlin mit Login</title>
+<title>Döner Map Berlin mit Login & Owner-Prüfung</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
@@ -60,6 +60,7 @@ html,body{height:100%;margin:0;}
   const auth = firebase.auth();
 
   let currentRole = null;
+  let currentUid = null;
 
   // Map Setup
   const map = L.map('map').setView([52.52,13.405],12);
@@ -75,7 +76,8 @@ html,body{height:100%;margin:0;}
         const idx = markers.length;
         const marker = L.marker(coords).addTo(map);
         function popupHtml(){
-          const readonly = currentRole!=='anbieter'?'readonly':'';
+          const canEdit = currentRole==='anbieter' && data.ownerUid===currentUid;
+          const readonly = canEdit?'':'readonly';
           return '<div class="popup-content">'+
                  '<h3>'+esc(data.name)+'</h3>'+
                  '<p><b>Spieß:</b> '+esc(data.spiess)+'</p>'+
@@ -87,70 +89,15 @@ html,body{height:100%;margin:0;}
                  '<label>Öffnungszeiten</label><input id="oeff-'+idx+'" '+readonly+' value="'+esc(data.oeffnungszeiten)+'"/>'+
                  '<label>Adresse</label><input id="addr-'+idx+'" '+readonly+' value="'+esc(data.addr||'')+'"/>'+
                  '<label>Telefon</label><input id="tel-'+idx+'" '+readonly+' value="'+esc(data.tel||'')+'"/>'+
-                 (currentRole==='anbieter'?'<button id="save-'+idx+'">Speichern</button>':'')+
+                 (canEdit?'<button id="save-'+idx+'">Speichern</button>':'')+
                  '</div>';
         }
         marker.bindPopup(popupHtml());
         marker.on('popupopen', ()=>{
-          if(currentRole==='anbieter'){
+          const canEdit = currentRole==='anbieter' && data.ownerUid===currentUid;
+          if(canEdit){
             setTimeout(()=>{
               const btn=document.getElementById('save-'+idx);
               if(!btn) return;
               btn.onclick=null;
               btn.addEventListener('click', ()=>{
-                const updated = {
-                  spiess: document.getElementById('spiess-'+idx).value,
-                  oeffnungszeiten: document.getElementById('oeff-'+idx).value,
-                  addr: document.getElementById('addr-'+idx).value,
-                  tel: document.getElementById('tel-'+idx).value
-                };
-                db.collection("doenerlaeden").doc(doc.id).update(updated)
-                  .then(()=>{
-                    Object.assign(data, updated);
-                    marker.setPopupContent(popupHtml());
-                    marker.openPopup();
-                  }).catch(err=>showError(err.message||err));
-              },{once:true});
-            },50);
-          }
-        });
-        markers.push(marker);
-      });
-    }).catch(err=>showError(err.message||err));
-  }
-
-  // Login & Registrierung
-  document.getElementById('registerBtn').onclick = ()=>{
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    auth.createUserWithEmailAndPassword(email,password)
-      .then(cred=>{
-        db.collection('users').doc(cred.user.uid).set({email:email, role:'anbieter'})
-          .then(()=>alert('Registrierung erfolgreich! Du bist Anbieter.'))
-          .catch(err=>showError(err.message));
-      })
-      .catch(err=>showError(err.message));
-  };
-
-  document.getElementById('loginBtn').onclick = ()=>{
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    auth.signInWithEmailAndPassword(email,password)
-      .then(cred=>{
-        db.collection('users').doc(cred.user.uid).get().then(doc=>{
-          if(doc.exists){
-            currentRole = doc.data().role;
-            document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
-            loadMarkers();
-          }else{
-            showError('User-Daten nicht gefunden');
-          }
-        });
-      })
-      .catch(err=>showError(err.message));
-  };
-
-})();
-</script>
-</body>
-</html>
