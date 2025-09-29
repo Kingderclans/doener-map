@@ -1,132 +1,181 @@
 ```html
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Döner Map</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Döner Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #map { height: 100vh; width: 100%; }
+    #loginBox {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginBox">
+    <div id="userInfo">
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Passwort">
+      <button id="loginBtn">Login</button>
+      <button id="logoutBtn" style="display:none;">Logout</button>
+    </div>
+    <div id="roleInfo"></div>
+  </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-      // Firebase Import
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-      import {
-        getFirestore,
-        collection,
-        getDocs,
-        doc,
-        updateDoc,
-      } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-      import {
-        getAuth,
-        signInWithEmailAndPassword,
-        onAuthStateChanged,
-      } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+  <div id="map"></div>
 
-      // Firebase Config
-      const firebaseConfig = {
-        apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
-        authDomain: "activespiess-433b5.firebaseapp.com",
-        projectId: "activespiess-433b5",
-        storageBucket: "activespiess-433b5.appspot.com",
-        messagingSenderId: "927921088097",
-        appId: "1:927921088097:web:05e6691473e3ded984ac20",
-      };
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script type="module">
+    // Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, doc, getDocs, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
+    // Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
+      authDomain: "activespiess-433b5.firebaseapp.com",
+      projectId: "activespiess-433b5",
+      storageBucket: "activespiess-433b5.firebasestorage.app",
+      messagingSenderId: "927921088097",
+      appId: "1:927921088097:web:05e6691473e3ded984ac20",
+      measurementId: "G-SXHQE7RB6M"
+    };
 
-      let currentUid = null;
+    // Init
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-      // === Map erstellen ===
-      const map = L.map("map").setView([52.52, 13.405], 12);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-      }).addTo(map);
+    let currentUid = null;
+    let currentRole = "User"; // Standardrolle
 
-      // === Dönerläden laden ===
-      async function loadDoener() {
-        const querySnapshot = await getDocs(collection(db, "doenerlaeden"));
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
+    // Map Setup
+    const map = L.map('map').setView([52.5200, 13.4050], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-          // Koordinaten in Numbers konvertieren
-          let coords = data.coords;
-          if (Array.isArray(coords) && coords.length === 2) {
-            coords = [Number(coords[0]), Number(coords[1])];
-          } else {
-            coords = [52.52, 13.405]; // fallback Berlin
-          }
+    // Shops laden
+    async function loadShops() {
+      console.log("🔎 Lade Shops aus Firestore...");
+      const querySnapshot = await getDocs(collection(db, "shops"));
+      console.log("📦 Shops gefunden:", querySnapshot.size);
 
-          if (coords.some(isNaN)) {
-            coords = [52.52, 13.405];
-          }
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        console.log("➡️ Shop:", docSnap.id, data);
 
-          // Popup HTML
-          let popupContent = `
-            <b>${data.name || "Unbenannt"}</b><br>
-            Spieß: ${data.spiess || "?"}<br>
-            Öffnungszeiten: ${data.oeffnungszeiten || "-"}<br>
-            Adresse: ${data.addr || "-"}<br>
+        const lat = parseFloat(data.coords?.[0]);
+        const lng = parseFloat(data.coords?.[1]);
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const popupContent = document.createElement("div");
+          popupContent.innerHTML = `
+            <b>${data.name || "Unbekannt"}</b><br>
+            ${data.addr || ""}<br>
             Tel: ${data.tel || "-"}<br>
+            Öffnungszeiten: ${data.oeffnungszeiten || "-"}<br>
+            Spieß aktiv: ${data.spiess || "-"}<br>
+            ${data.menuUrl ? `<a href="${data.menuUrl}" target="_blank">Menü ansehen</a>` : ""}
           `;
 
-          // Wenn Anbieter eingeloggt UND ownerUid matcht → Edit-Form
-          if (currentUid && data.ownerUid === currentUid) {
-            popupContent += `
-              <hr>
-              <label>Spieß: <input id="spiess-${docSnap.id}" value="${data.spiess || ""}"></label><br>
-              <label>Öffnungszeiten: <input id="oeff-${docSnap.id}" value="${data.oeffnungszeiten || ""}"></label><br>
-              <button onclick="saveDoener('${docSnap.id}')">Speichern</button>
+          // Wenn Anbieter = Owner → Bearbeitungsformular einfügen
+          if (currentUid && currentUid === data.ownerUid) {
+            const editBox = document.createElement("div");
+            editBox.innerHTML = `
+              <h4>Bearbeiten</h4>
+              <label>Öffnungszeiten:</label><br>
+              <input id="edit-oeff-${docSnap.id}" value="${data.oeffnungszeiten || ""}"><br>
+              <label>Spieß:</label><br>
+              <select id="edit-spiess-${docSnap.id}">
+                <option value="ja" ${data.spiess==="ja"?"selected":""}>Ja</option>
+                <option value="nein" ${data.spiess==="nein"?"selected":""}>Nein</option>
+              </select><br>
+              <button id="save-${docSnap.id}">Speichern</button>
             `;
+            popupContent.appendChild(editBox);
+
+            // Listener anhängen nach dem Öffnen
+            setTimeout(() => {
+              document.getElementById(`save-${docSnap.id}`).addEventListener("click", async () => {
+                const newOeff = document.getElementById(`edit-oeff-${docSnap.id}`).value;
+                const newSpiess = document.getElementById(`edit-spiess-${docSnap.id}`).value;
+
+                await updateDoc(doc(db, "shops", docSnap.id), {
+                  oeffnungszeiten: newOeff,
+                  spiess: newSpiess
+                });
+
+                alert("✅ Daten gespeichert!");
+              });
+            }, 500);
           }
 
-          L.marker(coords).addTo(map).bindPopup(popupContent);
-        });
-      }
-
-      // === Speichern-Funktion für Anbieter ===
-      window.saveDoener = async function (id) {
-        const spiessVal = document.getElementById("spiess-" + id).value;
-        const oeffVal = document.getElementById("oeff-" + id).value;
-        await updateDoc(doc(db, "doenerlaeden", id), {
-          spiess: spiessVal,
-          oeffnungszeiten: oeffVal,
-        });
-        alert("Daten gespeichert!");
-      };
-
-      // === Auth beobachten ===
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          currentUid = user.uid;
+          L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
         } else {
-          currentUid = null;
+          console.warn("⚠️ Ungültige Koordinaten:", docSnap.id, data.coords);
         }
-        // Karte neu laden (damit Edit-Felder sichtbar werden)
-        loadDoener();
       });
+    }
 
-      // === Test-Login (Demo Anbieter) ===
-      // Hier deine Anbieter-Login Daten nutzen
-      signInWithEmailAndPassword(auth, "anbieter@test.de", "test123").catch(
-        (err) => console.error(err)
-      );
-    </script>
-    <style>
-      #map {
-        height: 100vh;
-        width: 100%;
+    // Auth Handling
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUid = user.uid;
+        console.log("✅ Eingeloggt:", currentUid);
+
+        // Rolle laden
+        const userDoc = await getDoc(doc(db, "users", currentUid));
+        if (userDoc.exists()) {
+          currentRole = userDoc.data().role || "User";
+        } else {
+          currentRole = "User";
+        }
+        document.getElementById("roleInfo").innerText = "Rolle: " + currentRole;
+
+        document.getElementById("loginBtn").style.display = "none";
+        document.getElementById("logoutBtn").style.display = "inline";
+
+        loadShops();
+      } else {
+        console.log("🚪 Nicht eingeloggt");
+        currentUid = null;
+        currentRole = "User";
+        document.getElementById("roleInfo").innerText = "Rolle: Gast";
+
+        document.getElementById("loginBtn").style.display = "inline";
+        document.getElementById("logoutBtn").style.display = "none";
+
+        loadShops();
       }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
-  </body>
+    });
+
+    // Login Button
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        alert("❌ Fehler beim Login: " + err.message);
+      }
+    });
+
+    // Logout Button
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+    });
+  </script>
+</body>
 </html>
 ```
