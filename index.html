@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Döner Map Berlin + Firestore robust</title>
+<title>Döner Map Berlin + Firestore speichern</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
@@ -56,10 +56,9 @@ html,body{height:100%;margin:0;}
       }
       querySnapshot.forEach((doc)=>{
         const data = doc.data();
-        // robust coords prüfen
         let coords = data.coords;
         if(!Array.isArray(coords) || coords.length !== 2){
-          coords = [52.52,13.405]; // Standard Berlin
+          coords = [52.52,13.405];
           console.warn('coords fehlt oder falsch formatiert, Standard verwendet für', data.name);
         }
 
@@ -83,18 +82,30 @@ html,body{height:100%;margin:0;}
         }
 
         marker.bindPopup(popupHtml());
+
         marker.on('popupopen', ()=>{
           setTimeout(()=>{
             const btn = document.getElementById('save-'+idx);
             if(!btn) return;
             btn.onclick = null;
             btn.addEventListener('click', ()=>{
-              data.spiess = document.getElementById('spiess-'+idx).value;
-              data.oeffnungszeiten = document.getElementById('oeff-'+idx).value;
-              data.addr = document.getElementById('addr-'+idx).value;
-              data.tel = document.getElementById('tel-'+idx).value;
-              marker.setPopupContent(popupHtml());
-              marker.openPopup();
+              // Werte aus Inputs auslesen
+              const updatedData = {
+                spiess: document.getElementById('spiess-'+idx).value,
+                oeffnungszeiten: document.getElementById('oeff-'+idx).value,
+                addr: document.getElementById('addr-'+idx).value,
+                tel: document.getElementById('tel-'+idx).value
+              };
+              // In Firestore speichern
+              db.collection("doenerlaeden").doc(doc.id).update(updatedData)
+                .then(()=>{
+                  console.log('Erfolgreich gespeichert:', updatedData);
+                  // Lokales Popup updaten
+                  Object.assign(data, updatedData);
+                  marker.setPopupContent(popupHtml());
+                  marker.openPopup();
+                })
+                .catch(err=>showError(err.message||err));
             },{once:true});
           },50);
         });
