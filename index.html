@@ -7,10 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <style>
     #map {
       height: 100vh;
@@ -19,10 +16,25 @@
     .popup-content {
       font-family: sans-serif;
       font-size: 14px;
+      min-width: 200px;
     }
     .popup-content h3 {
       margin: 0 0 5px 0;
       font-size: 16px;
+    }
+    .popup-content label {
+      display: block;
+      margin-top: 5px;
+    }
+    .popup-content input {
+      width: 95%;
+      padding: 3px;
+      margin-top: 2px;
+    }
+    .popup-content button {
+      margin-top: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -74,20 +86,57 @@
       }
     ];
 
-    // Marker + Popup hinzufügen
-    doenerLaeden.forEach(laden => {
+    // Marker + bearbeitbare Popups hinzufügen
+    doenerLaeden.forEach((laden, index) => {
       const marker = L.marker(laden.coords).addTo(map);
 
-      const popupContent = `
+      const createPopupContent = () => `
         <div class="popup-content">
           <h3>${laden.name}</h3>
           <p><b>Spieß:</b> ${laden.spiess}</p>
           <p><b>Öffnungszeiten:</b> ${laden.oeffnungszeiten}</p>
+
+          <hr>
+          <label for="spiess-${index}">Spieß:</label>
+          <input id="spiess-${index}" type="text" value="${laden.spiess}"/>
+
+          <label for="oeff-${index}">Öffnungszeiten:</label>
+          <input id="oeff-${index}" type="text" value="${laden.oeffnungszeiten}"/>
+
+          <button onclick="saveChanges(${index})">Speichern</button>
         </div>
       `;
 
-      marker.bindPopup(popupContent);
+      marker.bindPopup(createPopupContent());
     });
+
+    // Speichern-Funktion
+    window.saveChanges = function(index) {
+      const newSpiess = document.getElementById(`spiess-${index}`).value;
+      const newOeff = document.getElementById(`oeff-${index}`).value;
+
+      doenerLaeden[index].spiess = newSpiess;
+      doenerLaeden[index].oeffnungszeiten = newOeff;
+
+      // Popup neu rendern
+      const marker = L.marker(doenerLaeden[index].coords);
+      marker.bindPopup(`
+        <div class="popup-content">
+          <h3>${doenerLaeden[index].name}</h3>
+          <p><b>Spieß:</b> ${doenerLaeden[index].spiess}</p>
+          <p><b>Öffnungszeiten:</b> ${doenerLaeden[index].oeffnungszeiten}</p>
+          <hr>
+          <label for="spiess-${index}">Spieß:</label>
+          <input id="spiess-${index}" type="text" value="${doenerLaeden[index].spiess}"/>
+          <label for="oeff-${index}">Öffnungszeiten:</label>
+          <input id="oeff-${index}" type="text" value="${doenerLaeden[index].oeffnungszeiten}"/>
+          <button onclick="saveChanges(${index})">Speichern</button>
+        </div>
+      `);
+
+      // Popup direkt neu öffnen
+      marker.openPopup();
+    };
   </script>
 </body>
 </html>
