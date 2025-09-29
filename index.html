@@ -2,21 +2,34 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Döner Map Berlin + Firestore speichern</title>
+<title>Döner Map Berlin mit Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
 html,body{height:100%;margin:0;}
-#map{height:100vh;width:100%;}
+#map{height:70vh;width:100%;}
 .popup-content{font-family:sans-serif;font-size:14px;min-width:220px;}
 .popup-content label{display:block;margin-top:6px;font-weight:600;}
 .popup-content input{width:100%;padding:4px;margin-top:4px;box-sizing:border-box;}
 .popup-content button{margin-top:8px;padding:6px 8px;cursor:pointer;}
 #errorOverlay{position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#fff7f7;border:1px solid #d33;color:#600;padding:10px;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+#loginDiv{padding:10px;}
+#loginDiv input{margin:4px 0; padding:6px; width:200px;}
+#loginDiv button{margin:4px 2px; padding:6px 10px; cursor:pointer;}
 </style>
 </head>
 <body>
 <div id="errorOverlay" role="alert"></div>
+
+<div id="loginDiv">
+  <h3>Login / Registrierung</h3>
+  <input type="email" id="email" placeholder="Email" /><br/>
+  <input type="password" id="password" placeholder="Passwort" /><br/>
+  <button id="registerBtn">Registrieren</button>
+  <button id="loginBtn">Login</button>
+  <span id="roleInfo"></span>
+</div>
+
 <div id="map"></div>
 
 <!-- Leaflet JS -->
@@ -25,47 +38,44 @@ html,body{height:100%;margin:0;}
 <!-- Firebase CDN -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 (function(){
-  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-  function showError(msg){ const el=document.getElementById('errorOverlay'); el.style.display='block'; el.innerText='Fehler: '+msg; console.error(msg); }
+  const showError = (msg)=>{const el=document.getElementById('errorOverlay'); el.style.display='block'; el.innerText='Fehler: '+msg; console.error(msg);}
+  const esc = s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-  try{
-    const map = L.map('map').setView([52.52,13.405],12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
+  // Firebase Setup
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
+    authDomain: "activespiess-433b5.firebaseapp.com",
+    projectId: "activespiess-433b5",
+    storageBucket: "activespiess-433b5.firebasestorage.app",
+    messagingSenderId: "927921088097",
+    appId: "1:927921088097:web:05e6691473e3ded984ac20",
+    measurementId: "G-SXHQE7RB6M"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCBWlHG4LLLPM-_dWV2eqw0Vwh1BvlcL-A",
-      authDomain: "activespiess-433b5.firebaseapp.com",
-      projectId: "activespiess-433b5",
-      storageBucket: "activespiess-433b5.firebasestorage.app",
-      messagingSenderId: "927921088097",
-      appId: "1:927921088097:web:05e6691473e3ded984ac20",
-      measurementId: "G-SXHQE7RB6M"
-    };
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  let currentRole = null;
 
-    const markers = [];
+  // Map Setup
+  const map = L.map('map').setView([52.52,13.405],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
+  const markers = [];
 
+  function loadMarkers(){
     db.collection("doenerlaeden").get().then((querySnapshot)=>{
-      if(querySnapshot.empty){
-        showError('Keine Dönerläden in Firestore gefunden.');
-        return;
-      }
-      querySnapshot.forEach((doc)=>{
+      querySnapshot.forEach(doc=>{
         const data = doc.data();
         let coords = data.coords;
-        if(!Array.isArray(coords) || coords.length !== 2){
-          coords = [52.52,13.405];
-          console.warn('coords fehlt oder falsch formatiert, Standard verwendet für', data.name);
-        }
-
+        if(!Array.isArray(coords)||coords.length!==2){coords=[52.52,13.405]; console.warn('coords falsch für', data.name);}
         const idx = markers.length;
         const marker = L.marker(coords).addTo(map);
-
         function popupHtml(){
+          const readonly = currentRole!=='anbieter'?'readonly':'';
           return '<div class="popup-content">'+
                  '<h3>'+esc(data.name)+'</h3>'+
                  '<p><b>Spieß:</b> '+esc(data.spiess)+'</p>'+
@@ -73,48 +83,73 @@ html,body{height:100%;margin:0;}
                  '<p><b>Adresse:</b> '+esc(data.addr||'')+'</p>'+
                  '<p><b>Telefon:</b> '+esc(data.tel||'')+'</p>'+
                  '<hr>'+
-                 '<label for="spiess-'+idx+'">Spieß</label><input id="spiess-'+idx+'" value="'+esc(data.spiess)+'"/>'+
-                 '<label for="oeff-'+idx+'">Öffnungszeiten</label><input id="oeff-'+idx+'" value="'+esc(data.oeffnungszeiten)+'"/>'+
-                 '<label for="addr-'+idx+'">Adresse</label><input id="addr-'+idx+'" value="'+esc(data.addr||'')+'"/>'+
-                 '<label for="tel-'+idx+'">Telefon</label><input id="tel-'+idx+'" value="'+esc(data.tel||'')+'"/>'+
-                 '<button id="save-'+idx+'">Speichern</button>'+
+                 '<label>Spieß</label><input id="spiess-'+idx+'" '+readonly+' value="'+esc(data.spiess)+'"/>'+
+                 '<label>Öffnungszeiten</label><input id="oeff-'+idx+'" '+readonly+' value="'+esc(data.oeffnungszeiten)+'"/>'+
+                 '<label>Adresse</label><input id="addr-'+idx+'" '+readonly+' value="'+esc(data.addr||'')+'"/>'+
+                 '<label>Telefon</label><input id="tel-'+idx+'" '+readonly+' value="'+esc(data.tel||'')+'"/>'+
+                 (currentRole==='anbieter'?'<button id="save-'+idx+'">Speichern</button>':'')+
                  '</div>';
         }
-
         marker.bindPopup(popupHtml());
-
         marker.on('popupopen', ()=>{
-          setTimeout(()=>{
-            const btn = document.getElementById('save-'+idx);
-            if(!btn) return;
-            btn.onclick = null;
-            btn.addEventListener('click', ()=>{
-              // Werte aus Inputs auslesen
-              const updatedData = {
-                spiess: document.getElementById('spiess-'+idx).value,
-                oeffnungszeiten: document.getElementById('oeff-'+idx).value,
-                addr: document.getElementById('addr-'+idx).value,
-                tel: document.getElementById('tel-'+idx).value
-              };
-              // In Firestore speichern
-              db.collection("doenerlaeden").doc(doc.id).update(updatedData)
-                .then(()=>{
-                  console.log('Erfolgreich gespeichert:', updatedData);
-                  // Lokales Popup updaten
-                  Object.assign(data, updatedData);
-                  marker.setPopupContent(popupHtml());
-                  marker.openPopup();
-                })
-                .catch(err=>showError(err.message||err));
-            },{once:true});
-          },50);
+          if(currentRole==='anbieter'){
+            setTimeout(()=>{
+              const btn=document.getElementById('save-'+idx);
+              if(!btn) return;
+              btn.onclick=null;
+              btn.addEventListener('click', ()=>{
+                const updated = {
+                  spiess: document.getElementById('spiess-'+idx).value,
+                  oeffnungszeiten: document.getElementById('oeff-'+idx).value,
+                  addr: document.getElementById('addr-'+idx).value,
+                  tel: document.getElementById('tel-'+idx).value
+                };
+                db.collection("doenerlaeden").doc(doc.id).update(updated)
+                  .then(()=>{
+                    Object.assign(data, updated);
+                    marker.setPopupContent(popupHtml());
+                    marker.openPopup();
+                  }).catch(err=>showError(err.message||err));
+              },{once:true});
+            },50);
+          }
         });
-
         markers.push(marker);
       });
     }).catch(err=>showError(err.message||err));
+  }
 
-  }catch(e){showError(e.message||e);}
+  // Login & Registrierung
+  document.getElementById('registerBtn').onclick = ()=>{
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.createUserWithEmailAndPassword(email,password)
+      .then(cred=>{
+        db.collection('users').doc(cred.user.uid).set({email:email, role:'anbieter'})
+          .then(()=>alert('Registrierung erfolgreich! Du bist Anbieter.'))
+          .catch(err=>showError(err.message));
+      })
+      .catch(err=>showError(err.message));
+  };
+
+  document.getElementById('loginBtn').onclick = ()=>{
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    auth.signInWithEmailAndPassword(email,password)
+      .then(cred=>{
+        db.collection('users').doc(cred.user.uid).get().then(doc=>{
+          if(doc.exists){
+            currentRole = doc.data().role;
+            document.getElementById('roleInfo').innerText='Rolle: '+currentRole;
+            loadMarkers();
+          }else{
+            showError('User-Daten nicht gefunden');
+          }
+        });
+      })
+      .catch(err=>showError(err.message));
+  };
+
 })();
 </script>
 </body>
