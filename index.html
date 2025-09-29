@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Döner Map</title>
+  <title>Döner Map Berlin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet CSS -->
@@ -40,7 +40,7 @@
       attribution: "© OpenStreetMap-Mitwirkende"
     }).addTo(map);
 
-    // Beispiel-Dönerläden
+    // Echte Dönerläden in Berlin
     const doenerLaeden = [
       {
         name: "Mustafa's Gemüse Kebap",
@@ -53,6 +53,24 @@
         coords: [52.542078, 13.412275],
         spiess: "Nein",
         oeffnungszeiten: "11:00 - 23:00"
+      },
+      {
+        name: "Döner Turm",
+        coords: [52.525847, 13.34186],
+        spiess: "Ja",
+        oeffnungszeiten: "09:00 - 01:00"
+      },
+      {
+        name: "Imren Grill",
+        coords: [52.494813, 13.415313],
+        spiess: "Ja",
+        oeffnungszeiten: "10:00 - 00:00"
+      },
+      {
+        name: "K’Ups Gemüse Kebap",
+        coords: [52.540157, 13.412636],
+        spiess: "Ja",
+        oeffnungszeiten: "11:00 - 23:30"
       }
     ];
 
